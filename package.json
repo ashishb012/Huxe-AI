@@ -1,7 +1,7 @@
 {
-  "name": "temp_init",
+  "name": "huxe-ai",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
     "expo": "~56.0.8",
     "expo-status-bar": "~56.0.4",
@@ -16,7 +16,9 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "prebuild": "expo prebuild",
+    "build:android": "eas build --platform android"
   },
   "private": true
 }

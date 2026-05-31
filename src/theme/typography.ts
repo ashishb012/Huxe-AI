@@ -9,7 +9,9 @@ import { colors } from './colors';
 
 // ── Font family constants ────────────────────────────────────────────────
 export const fonts = {
-  display: 'Pacifico-Regular',
+  display: 'Caveat_400Regular',
+  displayBold: 'Caveat_700Bold',
+  serif: 'PlayfairDisplay_400Regular',
   heading: 'Inter_700Bold',
   headingSemiBold: 'Inter_600SemiBold',
   body: 'Inter_400Regular',
@@ -32,7 +34,16 @@ export interface TypographyStyle {
 }
 
 export const typography = {
-  /** Large decorative / hero titles – Pacifico script */
+  /** Large decorative / hero titles – Playfair serif */
+  hero: {
+    fontSize: 48,
+    fontFamily: fonts.serif,
+    lineHeight: 56,
+    letterSpacing: 0,
+    color: colors.textPrimary,
+  } as TextStyle,
+
+  /** Large decorative script titles – Caveat */
   display: {
     fontSize: 36,
     fontFamily: fonts.display,

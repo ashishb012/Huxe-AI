@@ -21,7 +21,7 @@ import {
 
 // ── Database Singleton ──────────────────────────────────────
 
-const DB_NAME = 'huxeai.db';
+const DB_NAME = 'huxeai_v2.db';
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
 async function getDb(): Promise<SQLite.SQLiteDatabase> {

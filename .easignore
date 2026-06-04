@@ -38,11 +38,11 @@ yarn-error.*
 /android
 
 # Google Services
-google-services.json
-GoogleService-Info.plist
+# google-services.json
+# GoogleService-Info.plist
 
 # local env files
-.env
+# .env (Uncommented for EAS build)
 .env*.local
 *.keystore
 

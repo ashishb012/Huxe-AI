@@ -2,71 +2,22 @@
 // Huxe AI – Daily Brief Mock Data
 // ─────────────────────────────────────────────────────────────
 
-// ── Types ────────────────────────────────────────────────────
-
-export interface EmailItem {
-  id: string;
-  subject: string;
-  from: string;
-  snippet: string;
-  isNewsletter: boolean;
-}
-
-export interface NewsletterItem {
-  id: string;
-  author: string;
-  title: string;
-  bullets: string[];
-}
-
-export interface HeadlineItem {
-  id: string;
-  title: string;
-  source: string;
-  imageUrl: string | null;
-  url: string;
-}
-
-export interface InterestItem {
-  id: string;
-  topic: string;
-  bullets: string[];
-}
-
-export interface MarketDataItem {
-  symbol: string;
-  name: string;
-  value: number;
-  change: number;
-  changePercent: number;
-  isPositive: boolean;
-}
-
-export interface CalendarEvent {
-  id: string;
-  title: string;
-  time: string;
-  location: string | null;
-  isAllDay: boolean;
-}
-
-export interface DailyBriefData {
-  greeting: string;
-  date: string;
-  calendar: CalendarEvent[];
-  emails: EmailItem[];
-  newsletters: NewsletterItem[];
-  headlines: HeadlineItem[];
-  interests: InterestItem[];
-  markets: MarketDataItem[];
-}
+import {
+  EmailItem,
+  NewsletterItem,
+  HeadlineItem,
+  InterestItem,
+  MarketDataItem,
+  CalendarEvent,
+  DailyBriefData,
+} from '../types/brief';
 
 // ── Mock Data Arrays ─────────────────────────────────────────
 
 export const mockEmails: EmailItem[] = [
   {
     id: 'email-001',
-    subject: 'Why everything is "fine" until it\'s too late',
+    subject: "Why everything is 'fine' until it's  too late",
     from: 'Tech with Soleyman',
     snippet:
       'This newsletter nudges you away from AWS-weekend-tutorial comfort zones toward real, project-based cloud and DevOps work. It also unpacks the latest market data for Cloud and SRE roles, showing where demand is surging and which certifications actually move the needle for hiring managers.',
@@ -85,7 +36,7 @@ export const mockEmails: EmailItem[] = [
     subject: '🚀 Build, Learn, Ship: Your weekly dev digest',
     from: 'GitHub Education',
     snippet:
-      'This week\'s digest spotlights trending open-source contributions and highlights new student developer programs. It also features a curated list of "good first issues" across popular repos to help newcomers land their first merged PR.',
+      "This week's digest spotlights trending open- source contributions and highlights new student developer programs.It also features a curated list of 'good first issues' across popular repos to help newcomers land their first merged PR.",
     isNewsletter: false,
   },
 ];
@@ -145,7 +96,7 @@ export const mockInterests: InterestItem[] = [
     id: 'interest-001',
     topic: 'AI and deep tech',
     bullets: [
-      'OpenAI shipped GPT-5 Turbo with a 1 M-token context window and native tool-use, while Anthropic\'s Claude 4 Opus topped every major reasoning benchmark this week.',
+      "OpenAI shipped GPT-5 Turbo with a 1 M-token context window and native tool-use, while Anthropic's Claude 4 Opus topped every major reasoning benchmark this week.",
       'NVIDIA reported that global AI-compute demand grew 3.2× year-over-year, with inference workloads now outpacing training for the first time.',
       'Google DeepMind open-sourced a lightweight multimodal model optimised for on-device deployment, sparking a wave of edge-AI startups.',
       'The EU\'s AI Act enforcement began its first phase, requiring "high-risk" model providers to publish transparency reports by Q3 2026.',
@@ -157,7 +108,7 @@ export const mockInterests: InterestItem[] = [
     bullets: [
       'The US Commerce Department tightened export controls on advanced chip-packaging equipment, closing a loophole that let Chinese fabs access cutting-edge 3-nm tooling.',
       'TSMC announced a third Arizona fab with $20 B in fresh investment, partly funded by new CHIPS Act incentives tied to domestic workforce quotas.',
-      'China\'s Huawei launched a homegrown EDA platform, signaling a long-term push for semiconductor self-sufficiency despite slower performance benchmarks.',
+      "China's Huawei launched a homegrown EDA platform, signaling a long - term push for semiconductor self- sufficiency despite slower performance benchmarks.",
     ],
   },
   {
@@ -182,7 +133,7 @@ export const mockInterests: InterestItem[] = [
     id: 'interest-005',
     topic: 'Bengaluru and Karnataka news',
     bullets: [
-      'The Karnataka government approved a 60 % minimum-wage hike for unorganised-sector workers, the largest single revision in the state\'s history.',
+      "The Karnataka government approved a 60 % minimum-wage hike for unorganised-sector workers, the largest single revision in the state's history.",
       'Hospitality industry bodies in Bengaluru called for a review of the new service-charge guidelines, citing potential revenue losses during peak tourist season.',
       'Bengaluru police busted a ₹300-crore cyber-fraud ring operating out of Whitefield, arresting 12 suspects linked to pan-India phishing campaigns.',
       'Udupi district authorities filed charges in a land-encroachment case involving coastal wetlands, drawing attention from environmental groups.',

@@ -37,7 +37,17 @@ export const CREATE_BRIEF_HISTORY_TABLE = `
     generatedAt TEXT DEFAULT (datetime('now')),
     durationSeconds INTEGER,
     audioFilePath TEXT,
+    briefDataJson TEXT,
     status TEXT DEFAULT 'completed'
+  );
+`;
+
+export const CREATE_BRIEF_SCRIPTS_TABLE = `
+  CREATE TABLE IF NOT EXISTS BriefScripts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    historyId INTEGER,
+    scriptJson TEXT NOT NULL,
+    FOREIGN KEY(historyId) REFERENCES BriefHistory(id) ON DELETE CASCADE
   );
 `;
 
@@ -87,7 +97,14 @@ export interface BriefHistory {
   generatedAt: string;
   durationSeconds: number | null;
   audioFilePath: string | null;
+  briefDataJson: string | null;
   status: string;
+}
+
+export interface BriefScript {
+  id: number;
+  historyId: number;
+  scriptJson: string;
 }
 
 // ── Raw DB row types (SQLite stores booleans as integers) ───

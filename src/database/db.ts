@@ -9,6 +9,7 @@ import {
   CREATE_INTERESTS_TABLE,
   CREATE_MARKET_PREFERENCES_TABLE,
   CREATE_BRIEF_HISTORY_TABLE,
+  CREATE_BRIEF_SCRIPTS_TABLE,
   INSERT_DEFAULT_PREFERENCES,
   INSERT_DEFAULT_MARKET_PREFS,
   DEFAULT_INTERESTS,
@@ -17,6 +18,7 @@ import {
   type MarketPreferences,
   type MarketPreferencesRow,
   type BriefHistory,
+  type BriefScript,
 } from './schema';
 
 // ── Database Singleton ──────────────────────────────────────
@@ -44,6 +46,7 @@ export async function initDatabase(): Promise<void> {
   await db.execAsync(CREATE_INTERESTS_TABLE);
   await db.execAsync(CREATE_MARKET_PREFERENCES_TABLE);
   await db.execAsync(CREATE_BRIEF_HISTORY_TABLE);
+  await db.execAsync(CREATE_BRIEF_SCRIPTS_TABLE);
 
   // Insert default rows
   await db.execAsync(INSERT_DEFAULT_PREFERENCES);
@@ -191,14 +194,25 @@ export async function updateMarketPreferences(
 
 export async function addBriefHistory(
   durationSeconds: number,
-  audioFilePath: string,
-): Promise<void> {
+  audioFilePath: string | null,
+  briefDataJson: string,
+): Promise<number> {
   const db = await getDb();
-  await db.runAsync(
-    'INSERT INTO BriefHistory (durationSeconds, audioFilePath, status) VALUES (?, ?, ?)',
+  const result = await db.runAsync(
+    'INSERT INTO BriefHistory (durationSeconds, audioFilePath, briefDataJson, status) VALUES (?, ?, ?, ?)',
     durationSeconds,
     audioFilePath,
+    briefDataJson,
     'completed',
+  );
+  return result.lastInsertRowId;
+}
+
+export async function getBriefHistoryById(id: number): Promise<BriefHistory | null> {
+  const db = await getDb();
+  return db.getFirstAsync<BriefHistory>(
+    'SELECT * FROM BriefHistory WHERE id = ?',
+    id,
   );
 }
 
@@ -212,11 +226,36 @@ export async function getRecentBriefs(
   );
 }
 
+// ── Brief Scripts ───────────────────────────────────────────
+
+export async function addBriefScript(
+  historyId: number,
+  scriptJson: string,
+): Promise<void> {
+  const db = await getDb();
+  await db.runAsync(
+    'INSERT INTO BriefScripts (historyId, scriptJson) VALUES (?, ?)',
+    historyId,
+    scriptJson,
+  );
+}
+
+export async function getScriptForHistory(
+  historyId: number,
+): Promise<BriefScript | null> {
+  const db = await getDb();
+  return db.getFirstAsync<BriefScript>(
+    'SELECT * FROM BriefScripts WHERE historyId = ?',
+    historyId,
+  );
+}
+
 // ── Danger Zone ─────────────────────────────────────────────
 
 export async function clearAllData(): Promise<void> {
   const db = await getDb();
 
+  await db.execAsync('DELETE FROM BriefScripts;');
   await db.execAsync('DELETE FROM BriefHistory;');
   await db.execAsync('DELETE FROM Interests;');
   await db.execAsync('DELETE FROM MarketPreferences;');

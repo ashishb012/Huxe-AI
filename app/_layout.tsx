@@ -8,9 +8,15 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { DatabaseProvider } from '../src/contexts/DatabaseContext';
 import { colors } from '../src/theme/colors';
+import TrackPlayer from 'react-native-track-player';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { NetworkStatus } from '../src/components/NetworkStatus';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
+
+// Register background playback service
+TrackPlayer.registerPlaybackService(() => require('../src/services/service'));
 
 function RootLayoutNav() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -78,12 +84,15 @@ export default function RootLayout() {
   }
 
   return (
-    <DatabaseProvider>
-      <AuthProvider>
-        <StatusBar style="light" />
-        <RootLayoutNav />
-      </AuthProvider>
-    </DatabaseProvider>
+    <ErrorBoundary>
+      <DatabaseProvider>
+        <AuthProvider>
+          <NetworkStatus />
+          <StatusBar style="light" />
+          <RootLayoutNav />
+        </AuthProvider>
+      </DatabaseProvider>
+    </ErrorBoundary>
   );
 }
 

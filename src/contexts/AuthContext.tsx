@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────
-// Huxe AI — Auth Context (Phase 1: Mock Implementation)
-// Phase 2 will integrate @react-native-google-signin/google-signin
+// Huxe AI — Auth Context
+// Integrates @react-native-google-signin/google-signin
 // ─────────────────────────────────────────────────────────────
 
 import React, {
@@ -12,7 +12,7 @@ import React, {
   useState,
 } from 'react';
 
-import { googleSignIn, googleSignOut } from '../services/authService';
+import { googleSignIn, googleSignOut, restoreSession, initGoogleSignIn } from '../services/authService';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -47,24 +47,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Simulate checking for a persisted session on mount
+  // Restore session on mount
   useEffect(() => {
-    const restoreSession = async () => {
-      // Phase 2: Check keychain for stored tokens & validate
-      // For now, just finish loading after a brief tick
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      setIsLoading(false);
+    const initSession = async () => {
+      try {
+        initGoogleSignIn();
+        const result = await restoreSession();
+        if (result) {
+          setUser(result.user);
+        }
+      } catch (error) {
+        console.warn('[AuthProvider] Restore session failed:', error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
-    restoreSession();
+    initSession();
   }, []);
 
   const signIn = useCallback(async () => {
     try {
       setIsLoading(true);
       const result = await googleSignIn();
-      // Simulate network latency
-      await new Promise((resolve) => setTimeout(resolve, 500));
       setUser(result.user);
     } catch (error) {
       console.error('[AuthProvider] Sign-in failed:', error);

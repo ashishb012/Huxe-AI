@@ -67,8 +67,9 @@ interface DatabaseContextValue {
 
   addBriefHistory: (
     durationSeconds: number,
-    audioFilePath: string,
-  ) => Promise<void>;
+    audioFilePath: string | null,
+    briefDataJson: string,
+  ) => Promise<number>;
 
   refreshBriefHistory: () => Promise<void>;
 
@@ -180,9 +181,18 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addBriefHistoryWrapped = useCallback(
-    async (durationSeconds: number, audioFilePath: string) => {
-      await dbAddBriefHistory(durationSeconds, audioFilePath);
+    async (
+      durationSeconds: number,
+      audioFilePath: string | null,
+      briefDataJson: string,
+    ) => {
+      const id = await dbAddBriefHistory(
+        durationSeconds,
+        audioFilePath,
+        briefDataJson,
+      );
       await loadBriefHistory();
+      return id;
     },
     [loadBriefHistory],
   );

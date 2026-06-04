@@ -1,8 +1,35 @@
 // ─────────────────────────────────────────────────────────────
-// Huxe AI — Auth Service (Phase 1: Mock Implementation)
-// Phase 2 will integrate real Google OAuth via
-// @react-native-google-signin/google-signin
+// Huxe AI — Auth Service
+// Integrates real Google OAuth via @react-native-google-signin/google-signin
 // ─────────────────────────────────────────────────────────────
+
+import {
+  GoogleSignin,
+  isSuccessResponse,
+  isErrorWithCode,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
+
+const WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+
+let isInitialized = false;
+
+export function initGoogleSignIn() {
+  if (isInitialized) return;
+  if (!WEB_CLIENT_ID) {
+    throw new Error('Missing EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in environment');
+  }
+  GoogleSignin.configure({
+    webClientId: WEB_CLIENT_ID,
+    scopes: [
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/calendar.readonly',
+    ],
+    offlineAccess: true, // required for refresh token
+  });
+  isInitialized = true;
+}
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -12,60 +39,75 @@ export interface GoogleSignInResult {
     email: string;
     photoUrl: string;
   };
-  accessToken: string;
-  refreshToken: string;
+  accessToken: string | null;
+  idToken: string | null;
+}
+
+// ── Helpers ─────────────────────────────────────────────────
+
+async function getTokensFromResult(userInfo: any): Promise<GoogleSignInResult> {
+  const tokens = await GoogleSignin.getTokens();
+  return {
+    user: {
+      name: userInfo.user.name || 'User',
+      email: userInfo.user.email,
+      photoUrl: userInfo.user.photo || '',
+    },
+    accessToken: tokens.accessToken || null,
+    idToken: userInfo.idToken || null,
+  };
 }
 
 // ── Sign In ─────────────────────────────────────────────────
 
-/**
- * Initiate Google sign-in.
- *
- * Phase 2 roadmap:
- * - Configure GoogleSignin with webClientId
- * - Request scopes: gmail.readonly, calendar.readonly
- * - Store tokens securely via react-native-keychain
- */
 export async function googleSignIn(): Promise<GoogleSignInResult> {
-  return {
-    user: {
-      name: 'Ashish',
-      email: 'ashish@gmail.com',
-      photoUrl: '',
-    },
-    accessToken: 'dummy_access_token',
-    refreshToken: 'dummy_refresh_token',
-  };
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  
+  const response = await GoogleSignin.signIn();
+  
+  // v13+ API uses isSuccessResponse, older versions throw or return user directly
+  if (isSuccessResponse && isSuccessResponse(response)) {
+    return getTokensFromResult(response.data);
+  } else if (response && (response as any).user) {
+    // Fallback for slightly older v16 return type if it doesn't wrap in `data`
+    return getTokensFromResult(response);
+  }
+  
+  throw new Error('Google Sign-In failed or was cancelled');
 }
 
 // ── Sign Out ────────────────────────────────────────────────
 
-/**
- * Sign out and revoke tokens.
- *
- * Phase 2 roadmap:
- * - Call GoogleSignin.signOut()
- * - Clear keychain credentials
- */
 export async function googleSignOut(): Promise<void> {
-  // Phase 2: Real sign-out + keychain cleanup
+  await GoogleSignin.signOut();
+}
+
+// ── Silent Sign In / Restore ────────────────────────────────
+
+export async function restoreSession(): Promise<GoogleSignInResult | null> {
+  try {
+    const hasPreviousSignIn = GoogleSignin.hasPreviousSignIn();
+    if (!hasPreviousSignIn) return null;
+
+    const response = await GoogleSignin.signInSilently();
+    if (isSuccessResponse && isSuccessResponse(response as any)) {
+      return getTokensFromResult(response.data);
+    } else if (response && (response as any).user) {
+      return getTokensFromResult(response);
+    }
+    return null;
+  } catch (error: any) {
+    if (isErrorWithCode(error) && error.code === statusCodes.SIGN_IN_REQUIRED) {
+      return null;
+    }
+    console.warn('Silent sign-in failed:', error);
+    return null;
+  }
 }
 
 // ── Token Refresh ───────────────────────────────────────────
 
-/**
- * Refresh an expired access token using the stored refresh token.
- *
- * Phase 2 roadmap:
- * - POST to Google OAuth2 token endpoint
- * - Update keychain with new access token
- * - Wire into an Axios/fetch interceptor for automatic refresh
- *
- * @param _refreshToken The refresh token to use (unused in Phase 1)
- * @returns A new access token string
- */
-export async function refreshAccessToken(
-  _refreshToken: string,
-): Promise<string> {
-  return 'dummy_refreshed_token';
+export async function getFreshAccessToken(): Promise<string> {
+  const tokens = await GoogleSignin.getTokens();
+  return tokens.accessToken;
 }

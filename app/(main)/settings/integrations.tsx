@@ -10,7 +10,7 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 
 export default function IntegrationsScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
 
   return (
     <View style={styles.container}>
@@ -41,17 +41,19 @@ export default function IntegrationsScreen() {
               </View>
             </View>
             <View style={styles.cardFooter}>
-              <TouchableOpacity style={styles.disconnectButton}>
+              <TouchableOpacity style={styles.disconnectButton} onPress={() => signOut()}>
                 <Text style={styles.disconnectText}>Disconnect</Text>
               </TouchableOpacity>
             </View>
           </GlassCard>
 
           <View style={styles.addAccountContainer}>
-            <TouchableOpacity style={styles.addAccountButton}>
+            <TouchableOpacity 
+              style={styles.addAccountButton}
+              onPress={() => alert('Multi-account support is coming in a future update!')}
+            >
               <Text style={styles.addAccountText}>+ Add another Google account</Text>
             </TouchableOpacity>
-            
             <Text style={styles.infoText}>
               We only access your Gmail (read-only) and Calendar (read-only)
             </Text>

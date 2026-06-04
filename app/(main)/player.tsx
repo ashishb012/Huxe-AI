@@ -1,14 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import * as FileSystem from 'expo-file-system';
+import TrackPlayer, { useProgress, useIsPlaying, useActiveTrack } from 'react-native-track-player';
+
 import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
-import { getMockDailyBrief } from '../../src/mocks/briefData';
+import { getBriefHistoryById, getScriptForHistory } from '../../src/database/db';
+import { DailyBriefData } from '../../src/types/brief';
+import { PodcastScript } from '../../src/services/scriptService';
+import { loadTracks, play, pause, setPlaybackRate } from '../../src/services/playerService';
+import { GeneratedTrack } from '../../src/services/ttsService';
+
 import { SectionCard } from '../../src/components/SectionCard';
 import { ExpandableCard } from '../../src/components/ExpandableCard';
-import { GlassCard } from '../../src/components/GlassCard';
 import { WaveformIndicator } from '../../src/components/WaveformIndicator';
 import { PlayerBar } from '../../src/components/PlayerBar';
 import { colors } from '../../src/theme/colors';
@@ -16,39 +23,123 @@ import { typography } from '../../src/theme/typography';
 
 export default function PlayerScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const historyId = params.id ? parseInt(params.id as string) : null;
+
   const { userPreferences } = useDatabaseContext();
-  const [isPlaying, setIsPlaying] = useState(true);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
-  const [progress, setProgress] = useState(0.3);
+  
+  const [brief, setBrief] = useState<DailyBriefData | null>(null);
+  const [script, setScript] = useState<PodcastScript | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const userName = userPreferences?.preferredName || 'User';
-  const brief = getMockDailyBrief(userName);
-
+  // TrackPlayer Hooks
+  const { playing } = useIsPlaying();
+  const progressState = useProgress();
+  const activeTrack = useActiveTrack();
+  
+  // Active Card mapping
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
-  const allCardIds = React.useMemo(() => [
-    ...brief.emails.map(e => e.id),
-    ...brief.newsletters.map(n => n.id),
-    ...brief.headlines.map(h => h.id),
-    ...brief.interests.map(i => i.id)
-  ], [brief]);
+  const userName = userPreferences?.preferredName || 'User';
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isPlaying) {
-      interval = setInterval(() => {
-        setActiveCardId((current) => {
-          if (!current) return allCardIds[0];
-          const currentIndex = allCardIds.indexOf(current);
-          if (currentIndex < allCardIds.length - 1) {
-            return allCardIds[currentIndex + 1];
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        if (historyId) {
+          const history = await getBriefHistoryById(historyId);
+          if (history && history.briefDataJson) {
+            setBrief(JSON.parse(history.briefDataJson));
           }
-          return null; // Collapse all when done
-        });
-      }, 4000); // 4 seconds per topic for demo purposes
+          
+          const scriptRecord = await getScriptForHistory(historyId);
+          if (scriptRecord) {
+            const parsedScript: PodcastScript = JSON.parse(scriptRecord.scriptJson);
+            setScript(parsedScript);
+            
+            // Reconstruct track objects
+            const tracks: GeneratedTrack[] = parsedScript.paragraphs.map((p, i) => ({
+              id: `part_${i}`,
+              url: `${(FileSystem as any).documentDirectory}audio_cache/brief_${historyId}_part_${i}.wav`,
+              title: `Part ${i + 1}`,
+              artist: p.speaker,
+              duration: 0
+            }));
+            
+            await loadTracks(tracks);
+            await play();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load brief data from DB:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+
+    return () => {
+      // Pause when leaving
+      pause();
+    };
+  }, [historyId]);
+
+  // Sync active track index to active card expansion (simple heuristic mapping)
+  useEffect(() => {
+    if (activeTrack && brief) {
+      const partMatch = activeTrack.id.match(/part_(d+)/);
+      if (partMatch) {
+        const index = parseInt(partMatch[1]);
+        // Roughly try to map paragraph index to sections
+        // Very basic mapping for demo purposes
+        const totalItems = brief.emails.length + brief.newsletters.length + brief.headlines.length + brief.interests.length;
+        if (totalItems > 0 && script) {
+          const ratio = index / script.paragraphs.length;
+          
+          const allCardIds = [
+            ...brief.calendar.map(c => c.id),
+            ...brief.emails.map(e => e.id),
+            ...brief.newsletters.map(n => n.id),
+            ...brief.headlines.map(h => h.id),
+            ...brief.interests.map(i => i.id),
+            ...brief.markets.map(m => m.symbol)
+          ];
+          
+          const targetCardIndex = Math.floor(ratio * allCardIds.length);
+          setActiveCardId(allCardIds[Math.min(targetCardIndex, allCardIds.length - 1)]);
+        }
+      }
     }
-    return () => clearInterval(interval);
-  }, [isPlaying, allCardIds]);
+  }, [activeTrack, brief, script]);
+
+  const handleTogglePlay = () => {
+    if (playing) {
+      pause();
+    } else {
+      play();
+    }
+  };
+
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    setPlaybackRate(speed);
+  };
+
+  const progressPercent = progressState.duration > 0 ? progressState.position / progressState.duration : 0;
+
+  if (isLoading || !brief) {
+    return (
+      <View style={styles.container}>
+        <SafeAreaView style={[styles.safeArea, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={colors.accent} />
+          <Text style={{ ...typography.body, color: colors.textSecondary, marginTop: 16 }}>
+            Generating your brief...
+          </Text>
+        </SafeAreaView>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -79,7 +170,7 @@ export default function PlayerScreen() {
             />
             <View style={styles.greetingOverlay}>
               <View style={styles.waveformWrapper}>
-                <WaveformIndicator isActive={isPlaying} />
+                <WaveformIndicator isActive={playing || false} />
               </View>
               <Text style={styles.greetingText}>{brief.greeting}</Text>
               <View style={styles.dateContainer}>
@@ -89,68 +180,118 @@ export default function PlayerScreen() {
             </View>
           </View>
 
+          {/* Calendar Section */}
+          {brief.calendar.length > 0 && (
+            <SectionCard title="Calendar" sectionType="calendar" isActive={false}>
+              {brief.calendar.map((event) => (
+                <ExpandableCard
+                  key={event.id}
+                  title={event.title}
+                  subtitle={`${event.time}`}
+                  icon={<Ionicons name="calendar-outline" size={18} color={colors.textPrimary} />}
+                  isExpanded={activeCardId === event.id}
+                >
+                  {event.location && <Text style={styles.expandedText}>• Location: {event.location}</Text>}
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
+
           {/* Email Section */}
-          <SectionCard title="Email" sectionType="email" isActive={false}>
-            {brief.emails.map((email) => (
-              <ExpandableCard
-                key={email.id}
-                title={email.subject}
-                subtitle={`From: ${email.from}`}
-                icon={<Ionicons name="mail-outline" size={18} color={colors.textPrimary} />}
-                isExpanded={activeCardId === email.id}
-              >
-                <Text style={styles.expandedText}>• {email.snippet}</Text>
-              </ExpandableCard>
-            ))}
-          </SectionCard>
+          {brief.emails.length > 0 && (
+            <SectionCard title="Email" sectionType="email" isActive={false}>
+              {brief.emails.map((email) => (
+                <ExpandableCard
+                  key={email.id}
+                  title={email.subject}
+                  subtitle={`From: ${email.from}`}
+                  icon={<Ionicons name="mail-outline" size={18} color={colors.textPrimary} />}
+                  isExpanded={activeCardId === email.id}
+                >
+                  <Text style={styles.expandedText}>• {email.snippet}</Text>
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
 
           {/* Newsletter Section */}
-          <SectionCard title="Newsletter" sectionType="newsletter" isActive={false}>
-            {brief.newsletters.map((nl) => (
-              <ExpandableCard
-                key={nl.id}
-                title={nl.author}
-                subtitle={nl.title}
-                icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
-                isExpanded={activeCardId === nl.id}
-              >
-                {nl.bullets.map((bullet, i) => (
-                  <Text key={i} style={styles.expandedText}>• {bullet}</Text>
-                ))}
-              </ExpandableCard>
-            ))}
-          </SectionCard>
+          {brief.newsletters.length > 0 && (
+            <SectionCard title="Newsletter" sectionType="newsletter" isActive={false}>
+              {brief.newsletters.map((nl) => (
+                <ExpandableCard
+                  key={nl.id}
+                  title={nl.author}
+                  subtitle={nl.title}
+                  icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
+                  isExpanded={activeCardId === nl.id}
+                >
+                  {nl.bullets.map((bullet, i) => (
+                    <Text key={i} style={styles.expandedText}>• {bullet}</Text>
+                  ))}
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
 
           {/* Headlines Section */}
-          <SectionCard title="Headlines" sectionType="headlines" isActive={false}>
-            {brief.headlines.map((hl) => (
-              <ExpandableCard
-                key={hl.id}
-                title={hl.source}
-                subtitle={hl.title}
-                icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
-                isExpanded={activeCardId === hl.id}
-              >
-                <Text style={styles.expandedText}>• Tap to read the full article on {hl.source}</Text>
-              </ExpandableCard>
-            ))}
-          </SectionCard>
+          {brief.headlines.length > 0 && (
+            <SectionCard title="Headlines" sectionType="headlines" isActive={false}>
+              {brief.headlines.map((hl) => (
+                <ExpandableCard
+                  key={hl.id}
+                  title={hl.source}
+                  subtitle={hl.title}
+                  icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
+                  isExpanded={activeCardId === hl.id}
+                >
+                  <Text style={styles.expandedText}>• Tap to read the full article on {hl.source}</Text>
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
 
           {/* Interests Section */}
-          <SectionCard title="Interests" sectionType="interests" isActive={false}>
-            {brief.interests.map((interest) => (
-              <ExpandableCard
-                key={interest.id}
-                title={interest.topic}
-                icon={<Ionicons name="radio-button-on" size={12} color={colors.textMuted} />}
-                isExpanded={activeCardId === interest.id}
-              >
-                {interest.bullets.map((bullet, i) => (
-                  <Text key={i} style={styles.expandedText}>• {bullet}</Text>
-                ))}
-              </ExpandableCard>
-            ))}
-          </SectionCard>
+          {brief.interests.length > 0 && (
+            <SectionCard title="Interests" sectionType="interests" isActive={false}>
+              {brief.interests.map((interest) => (
+                <ExpandableCard
+                  key={interest.id}
+                  title={interest.topic}
+                  icon={<Ionicons name="radio-button-on" size={12} color={colors.textMuted} />}
+                  isExpanded={activeCardId === interest.id}
+                >
+                  {interest.bullets.map((bullet, i) => (
+                    <Text key={i} style={styles.expandedText}>• {bullet}</Text>
+                  ))}
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
+
+          {/* Markets Section */}
+          {brief.markets.length > 0 && (
+            <SectionCard title="Markets" sectionType="markets" isActive={false}>
+              {brief.markets.map((market) => (
+                <ExpandableCard
+                  key={market.symbol}
+                  title={market.name}
+                  subtitle={`${market.value.toFixed(2)} (${market.isPositive ? '+' : ''}${market.changePercent.toFixed(2)}%)`}
+                  icon={
+                    <Ionicons 
+                      name={market.isPositive ? "trending-up" : "trending-down"} 
+                      size={18} 
+                      color={market.isPositive ? '#4CAF50' : '#F44336'} 
+                    />
+                  }
+                  isExpanded={activeCardId === market.symbol}
+                >
+                  <Text style={styles.expandedText}>
+                    {market.isPositive ? 'Up' : 'Down'} {Math.abs(market.change).toFixed(2)} points today.
+                  </Text>
+                </ExpandableCard>
+              ))}
+            </SectionCard>
+          )}
 
           {/* Farewell Card */}
           <View style={styles.greetingContainer}>
@@ -176,11 +317,11 @@ export default function PlayerScreen() {
 
       {/* Fixed Player Bar */}
       <PlayerBar
-        isPlaying={isPlaying}
+        isPlaying={playing || false}
         playbackSpeed={playbackSpeed}
-        onTogglePlay={() => setIsPlaying(!isPlaying)}
-        onSpeedChange={setPlaybackSpeed}
-        progress={progress}
+        onTogglePlay={handleTogglePlay}
+        onSpeedChange={handleSpeedChange}
+        progress={progressPercent}
       />
     </View>
   );
@@ -236,7 +377,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   greetingGradient: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     opacity: 0.8,
   },
   greetingOverlay: {

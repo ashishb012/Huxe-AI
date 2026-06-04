@@ -36,6 +36,13 @@ const SETTINGS_PAGES = [
     icon: <Ionicons name="person-outline" size={20} color={colors.textPrimary} />,
     route: '/(main)/settings/account',
   },
+  {
+    id: 'developer',
+    title: 'Developer',
+    description: 'Advanced tools and debugging',
+    icon: <Ionicons name="construct-outline" size={20} color={colors.textPrimary} />,
+    route: '/(main)/settings/developer',
+  },
 ];
 
 export default function SettingsHubScreen() {

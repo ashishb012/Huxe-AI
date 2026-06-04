@@ -1,13 +1,19 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
 import { generateGreeting, formatDate } from '../../src/mocks/briefData';
+import { generateDailyBrief } from '../../src/services/briefDataService';
+import { generatePodcastScript } from '../../src/services/scriptService';
+import { addBriefHistory, addBriefScript, getRecentBriefs } from '../../src/database/db';
+import { BriefHistory } from '../../src/database/schema';
 import { GradientButton } from '../../src/components/GradientButton';
 import { GlassCard } from '../../src/components/GlassCard';
+import { GeneratingOverlay } from '../../src/components/GeneratingOverlay';
+import { HistoryCard } from '../../src/components/HistoryCard';
 import { colors } from '../../src/theme/colors';
 import { typography } from '../../src/theme/typography';
 
@@ -16,6 +22,10 @@ export default function HomeScreen() {
   const { userPreferences } = useDatabaseContext();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const slideAnim = React.useRef(new Animated.Value(20)).current;
+
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStatus, setGenerationStatus] = useState('Starting...');
+  const [recentBriefs, setRecentBriefs] = useState<BriefHistory[]>([]);
 
   useEffect(() => {
     Animated.parallel([
@@ -33,9 +43,46 @@ export default function HomeScreen() {
     ]).start();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const loadHistory = async () => {
+        const history = await getRecentBriefs(5);
+        setRecentBriefs(history);
+      };
+      loadHistory();
+    }, [])
+  );
+
   const userName = userPreferences?.preferredName || 'User';
   const greeting = generateGreeting(userName);
   const dateStr = formatDate();
+
+  const handleGenerateBrief = async () => {
+    try {
+      setIsGenerating(true);
+      setGenerationStatus('Fetching emails and calendar...');
+      const briefData = await generateDailyBrief(userName);
+
+      setGenerationStatus('Writing podcast script with AI...');
+      const script = await generatePodcastScript(briefData, userName, setGenerationStatus);
+
+      setGenerationStatus('Saving brief to database...');
+      const durationEstimateSeconds = parseInt(script.durationEstimate) * 60 || 120;
+      const historyId = await addBriefHistory(durationEstimateSeconds, null, JSON.stringify(briefData));
+      await addBriefScript(historyId, JSON.stringify(script));
+
+      setGenerationStatus('Generating lifelike audio...');
+      const { generateAudioForScript } = await import('../../src/services/ttsService');
+      await generateAudioForScript(historyId, script, setGenerationStatus);
+
+      setIsGenerating(false);
+      router.push({ pathname: '/(main)/player', params: { id: historyId } });
+    } catch (error) {
+      console.error(error);
+      setIsGenerating(false);
+      alert('Failed to generate brief. Please try again.');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -43,6 +90,8 @@ export default function HomeScreen() {
         colors={colors.backgroundGradient}
         style={StyleSheet.absoluteFill}
       />
+      
+      <GeneratingOverlay isVisible={isGenerating} statusText={generationStatus} />
       
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
@@ -86,14 +135,25 @@ export default function HomeScreen() {
           <View style={styles.actionContainer}>
             <GradientButton
               title="Generate Daily Brief"
-              onPress={() => router.push('/(main)/player')}
+              onPress={handleGenerateBrief}
               icon={<Ionicons name="play" size={14} color={colors.textPrimary} style={{ marginRight: 4 }} />}
             />
             
             <View style={styles.historyContainer}>
-              <GlassCard style={styles.historyCard} intensity={10}>
-                <Text style={styles.historyText}>No briefs generated yet</Text>
-              </GlassCard>
+              <Text style={styles.sectionTitle}>Recent Briefs</Text>
+              {recentBriefs.length === 0 ? (
+                <GlassCard style={styles.historyCard} intensity={10}>
+                  <Text style={styles.historyText}>No briefs generated yet</Text>
+                </GlassCard>
+              ) : (
+                <FlatList
+                  data={recentBriefs}
+                  keyExtractor={(item) => item.id.toString()}
+                  renderItem={({ item }) => <HistoryCard history={item} />}
+                  scrollEnabled={false}
+                  contentContainerStyle={{ gap: 8, paddingBottom: 24 }}
+                />
+              )}
             </View>
           </View>
         </Animated.View>
@@ -151,7 +211,11 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   heroGradient: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     opacity: 0.8,
   },
   heroOverlay: {
@@ -193,15 +257,23 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   historyContainer: {
-    alignItems: 'center',
+    alignItems: 'stretch',
+    marginTop: 16,
+  },
+  sectionTitle: {
+    ...typography.h3,
+    color: colors.textPrimary,
+    marginBottom: 16,
   },
   historyCard: {
     paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 999,
+    borderRadius: 16,
+    alignItems: 'center',
   },
   historyText: {
     ...typography.caption,
     color: colors.textSecondary,
   },
 });
+

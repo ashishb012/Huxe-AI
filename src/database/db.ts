@@ -55,8 +55,8 @@ export async function initDatabase(): Promise<void> {
   // Seed default interests (skip duplicates via INSERT OR IGNORE)
   for (const topic of DEFAULT_INTERESTS) {
     await db.runAsync(
-      'INSERT OR IGNORE INTO Interests (topicString) VALUES (?)',
-      topic,
+      'INSERT OR IGNORE INTO Interests (topicString) VALUES ($topic)',
+      { $topic: topic }
     );
   }
 }
@@ -135,14 +135,14 @@ export async function addInterest(topic: string): Promise<void> {
   if (!trimmed) return;
 
   await db.runAsync(
-    'INSERT OR IGNORE INTO Interests (topicString) VALUES (?)',
-    trimmed,
+    'INSERT OR IGNORE INTO Interests (topicString) VALUES ($topic)',
+    { $topic: trimmed }
   );
 }
 
 export async function removeInterest(id: number): Promise<void> {
   const db = await getDb();
-  await db.runAsync('DELETE FROM Interests WHERE id = ?', id);
+  await db.runAsync('DELETE FROM Interests WHERE id = $id', { $id: id });
 }
 
 // ── Market Preferences ──────────────────────────────────────
@@ -198,12 +198,16 @@ export async function addBriefHistory(
   briefDataJson: string,
 ): Promise<number> {
   const db = await getDb();
+  // Using named parameters avoids the NullPointerException on Android 
+  // when passing null through the varargs bridge.
   const result = await db.runAsync(
-    'INSERT INTO BriefHistory (durationSeconds, audioFilePath, briefDataJson, status) VALUES (?, ?, ?, ?)',
-    durationSeconds,
-    audioFilePath,
-    briefDataJson,
-    'completed',
+    'INSERT INTO BriefHistory (durationSeconds, audioFilePath, briefDataJson, status) VALUES ($duration, $audio, $json, $status)',
+    {
+      $duration: durationSeconds,
+      $audio: audioFilePath,
+      $json: briefDataJson,
+      $status: 'completed'
+    }
   );
   return result.lastInsertRowId;
 }
@@ -211,8 +215,8 @@ export async function addBriefHistory(
 export async function getBriefHistoryById(id: number): Promise<BriefHistory | null> {
   const db = await getDb();
   return db.getFirstAsync<BriefHistory>(
-    'SELECT * FROM BriefHistory WHERE id = ?',
-    id,
+    'SELECT * FROM BriefHistory WHERE id = $id',
+    { $id: id }
   );
 }
 
@@ -221,8 +225,8 @@ export async function getRecentBriefs(
 ): Promise<BriefHistory[]> {
   const db = await getDb();
   return db.getAllAsync<BriefHistory>(
-    'SELECT * FROM BriefHistory ORDER BY generatedAt DESC LIMIT ?',
-    limit,
+    'SELECT * FROM BriefHistory ORDER BY generatedAt DESC LIMIT $limit',
+    { $limit: limit }
   );
 }
 
@@ -234,9 +238,11 @@ export async function addBriefScript(
 ): Promise<void> {
   const db = await getDb();
   await db.runAsync(
-    'INSERT INTO BriefScripts (historyId, scriptJson) VALUES (?, ?)',
-    historyId,
-    scriptJson,
+    'INSERT INTO BriefScripts (historyId, scriptJson) VALUES ($historyId, $scriptJson)',
+    {
+      $historyId: historyId,
+      $scriptJson: scriptJson
+    }
   );
 }
 
@@ -245,8 +251,8 @@ export async function getScriptForHistory(
 ): Promise<BriefScript | null> {
   const db = await getDb();
   return db.getFirstAsync<BriefScript>(
-    'SELECT * FROM BriefScripts WHERE historyId = ?',
-    historyId,
+    'SELECT * FROM BriefScripts WHERE historyId = $historyId',
+    { $historyId: historyId }
   );
 }
 

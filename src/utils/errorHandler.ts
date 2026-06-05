@@ -7,6 +7,8 @@
  * In a production app, this would integrate with Sentry, Crashlytics, etc.
  */
 
+import Toast from 'react-native-toast-message';
+
 export enum ErrorSeverity {
   INFO = 'info',
   WARNING = 'warning',
@@ -40,10 +42,29 @@ export function logError(
     console.groupEnd();
   }
 
+  // Show toast for errors
+  if (severity === ErrorSeverity.ERROR || severity === ErrorSeverity.FATAL) {
+    Toast.show({
+      type: 'error',
+      text1: 'Oops! Something went wrong.',
+      text2: message.length > 50 ? message.substring(0, 50) + '...' : message,
+      position: 'bottom',
+    });
+  }
+
   // TODO: Add Crashlytics/Sentry reporting here for production
   // if (!__DEV__) {
   //   Sentry.captureException(error, { tags: { context, severity } });
   // }
+}
+
+export function showUserError(message: string, isSuccess: boolean = false) {
+  Toast.show({
+    type: isSuccess ? 'success' : 'error',
+    text1: isSuccess ? 'Success' : 'Error',
+    text2: message,
+    position: 'bottom',
+  });
 }
 
 export function reportApiError(apiName: string, error: unknown) {

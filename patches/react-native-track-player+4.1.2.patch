@@ -444,3 +444,41 @@ index b2409a0..2992272 100644
 -    }
 +    } }
  }
+diff --git a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
+index afa6b0f..5436edf 100644
+--- a/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
++++ b/node_modules/react-native-track-player/android/src/main/java/com/doublesymmetry/trackplayer/service/MusicService.kt
+@@ -741,8 +741,14 @@ class MusicService : HeadlessJsTaskService() {
+ 
+     @MainThread
+     private fun emit(event: String, data: Bundle? = null) {
+-        reactNativeHost.reactInstanceManager.currentReactContext
+-            ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
++        val reactContext = try {
++            reactNativeHost.reactInstanceManager.currentReactContext
++        } catch (e: Exception) {
++            val app = application as com.facebook.react.ReactApplication
++            app.reactHost?.currentReactContext
++        }
++
++        reactContext?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+             ?.emit(event, data?.let { Arguments.fromBundle(it) })
+     }
+ 
+@@ -751,8 +757,14 @@ class MusicService : HeadlessJsTaskService() {
+         val payload = Arguments.createArray()
+         data.forEach { payload.pushMap(Arguments.fromBundle(it)) }
+ 
+-        reactNativeHost.reactInstanceManager.currentReactContext
+-            ?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
++        val reactContext = try {
++            reactNativeHost.reactInstanceManager.currentReactContext
++        } catch (e: Exception) {
++            val app = application as com.facebook.react.ReactApplication
++            app.reactHost?.currentReactContext
++        }
++
++        reactContext?.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+             ?.emit(event, payload)
+     }
+ 

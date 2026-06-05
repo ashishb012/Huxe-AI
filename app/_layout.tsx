@@ -11,6 +11,7 @@ import { colors } from '../src/theme/colors';
 import TrackPlayer from 'react-native-track-player';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { NetworkStatus } from '../src/components/NetworkStatus';
+import Toast from 'react-native-toast-message';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -90,6 +91,7 @@ export default function RootLayout() {
           <NetworkStatus />
           <StatusBar style="light" />
           <RootLayoutNav />
+          <Toast />
         </AuthProvider>
       </DatabaseProvider>
     </ErrorBoundary>

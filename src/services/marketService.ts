@@ -13,60 +13,56 @@ const SYMBOLS = [
 
 /**
  * Fetch market data for predefined indices using Yahoo Finance public API.
+ * Each symbol is fetched independently so one failure doesn't kill the rest.
  */
 export async function fetchMarketData(): Promise<MarketDataItem[]> {
-  try {
-    const promises = SYMBOLS.map(async (item) => {
-      // Using query1.finance.yahoo.com for public chart data
+  console.log('[Markets] Fetching market data for', SYMBOLS.length, 'symbols...');
+
+  const results = await Promise.allSettled(
+    SYMBOLS.map(async (item) => {
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(item.symbol)}?range=1d&interval=1d`;
-      
+
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`Failed to fetch ${item.symbol}`);
+        throw new Error(`Yahoo Finance error for ${item.symbol}: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      const result = data.chart.result[0];
-      const meta = result.meta;
-      
-      const currentPrice = meta.regularMarketPrice;
-      const previousClose = meta.previousClose;
+      const chartResult = data?.chart?.result?.[0];
+      if (!chartResult) {
+        throw new Error(`No chart result for ${item.symbol}`);
+      }
+
+      const meta = chartResult.meta;
+      if (!meta) {
+        throw new Error(`No meta data for ${item.symbol}`);
+      }
+
+      const currentPrice = meta.regularMarketPrice ?? 0;
+      const previousClose = meta.previousClose ?? currentPrice;
       const change = currentPrice - previousClose;
-      const changePercent = (change / previousClose) * 100;
-      
+      const changePercent = previousClose > 0 ? (change / previousClose) * 100 : 0;
+
       return {
-        symbol: item.symbol.replace('^', ''), // Clean up ticker symbol
+        symbol: item.symbol.replace('^', ''),
         name: item.name,
         value: currentPrice,
         change: change,
         changePercent: changePercent,
         isPositive: change >= 0,
       } as MarketDataItem;
-    });
+    })
+  );
 
-    const results = await Promise.all(promises);
-    return results;
+  const markets: MarketDataItem[] = [];
+  results.forEach((result, index) => {
+    if (result.status === 'fulfilled') {
+      markets.push(result.value);
+    } else {
+      console.warn(`[Markets] Failed to fetch ${SYMBOLS[index].symbol}:`, result.reason);
+    }
+  });
 
-  } catch (error) {
-    console.error('Failed to fetch market data:', error);
-    // Fallback to mock data on error
-    return [
-      {
-        symbol: 'SPX',
-        name: 'S&P 500',
-        value: 5304.72,
-        change: 23.76,
-        changePercent: 0.45,
-        isPositive: true,
-      },
-      {
-        symbol: 'IXIC',
-        name: 'NASDAQ',
-        value: 16831.48,
-        change: 103.71,
-        changePercent: 0.62,
-        isPositive: true,
-      }
-    ];
-  }
+  console.log(`[Markets] Successfully fetched ${markets.length}/${SYMBOLS.length} indices`);
+  return markets;
 }

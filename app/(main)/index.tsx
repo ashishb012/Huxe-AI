@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, FlatList, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,6 +8,7 @@ import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
 import { generateGreeting, formatDate } from '../../src/mocks/briefData';
 import { generateDailyBrief } from '../../src/services/briefDataService';
 import { generatePodcastScript } from '../../src/services/scriptService';
+import { generateAudioForScript } from '../../src/services/ttsService';
 import { addBriefHistory, addBriefScript, getRecentBriefs } from '../../src/database/db';
 import { BriefHistory } from '../../src/database/schema';
 import { GradientButton } from '../../src/components/GradientButton';
@@ -72,7 +73,6 @@ export default function HomeScreen() {
       await addBriefScript(historyId, JSON.stringify(script));
 
       setGenerationStatus('Generating lifelike audio...');
-      const { generateAudioForScript } = await import('../../src/services/ttsService');
       await generateAudioForScript(historyId, script, setGenerationStatus);
 
       setIsGenerating(false);
@@ -80,7 +80,8 @@ export default function HomeScreen() {
     } catch (error) {
       console.error(error);
       setIsGenerating(false);
-      alert('Failed to generate brief. Please try again.');
+      const errorMsg = error instanceof Error ? `${error.message}\n\nStack:\n${error.stack}` : String(error);
+      Alert.alert('Brief Generation Failed', `Detailed Log:\n${errorMsg}`);
     }
   };
 
@@ -90,13 +91,13 @@ export default function HomeScreen() {
         colors={colors.backgroundGradient}
         style={StyleSheet.absoluteFill}
       />
-      
+
       <GeneratingOverlay isVisible={isGenerating} statusText={generationStatus} />
-      
+
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
           <View style={styles.headerSpacer} />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.settingsButton}
             onPress={() => router.push('/(main)/settings')}
           >
@@ -104,10 +105,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        <Animated.View 
+        <Animated.View
           style={[
             styles.content,
-            { 
+            {
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }]
             }
@@ -124,7 +125,7 @@ export default function HomeScreen() {
               <View style={styles.greetingContainer}>
                 <Text style={styles.greeting}>{greeting}</Text>
               </View>
-              
+
               <View style={styles.dateContainer}>
                 <Ionicons name="calendar-outline" size={16} color={colors.textPrimary} style={{ marginRight: 8 }} />
                 <Text style={styles.dateText}>{dateStr}</Text>
@@ -138,7 +139,7 @@ export default function HomeScreen() {
               onPress={handleGenerateBrief}
               icon={<Ionicons name="play" size={14} color={colors.textPrimary} style={{ marginRight: 4 }} />}
             />
-            
+
             <View style={styles.historyContainer}>
               <Text style={styles.sectionTitle}>Recent Briefs</Text>
               {recentBriefs.length === 0 ? (

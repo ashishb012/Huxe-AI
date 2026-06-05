@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import TrackPlayer, { useProgress, useIsPlaying, useActiveTrack } from 'react-native-track-player';
 
 import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
@@ -61,7 +61,7 @@ export default function PlayerScreen() {
             // Reconstruct track objects
             const tracks: GeneratedTrack[] = parsedScript.paragraphs.map((p, i) => ({
               id: `part_${i}`,
-              url: `${(FileSystem as any).documentDirectory}audio_cache/brief_${historyId}_part_${i}.wav`,
+              url: `${FileSystem.documentDirectory}audio_cache/brief_${historyId}_part_${i}.wav`,
               title: `Part ${i + 1}`,
               artist: p.speaker,
               duration: 0
@@ -88,7 +88,7 @@ export default function PlayerScreen() {
   // Sync active track index to active card expansion (simple heuristic mapping)
   useEffect(() => {
     if (activeTrack && brief) {
-      const partMatch = activeTrack.id.match(/part_(d+)/);
+      const partMatch = String(activeTrack.id).match(/part_(\d+)/);
       if (partMatch) {
         const index = parseInt(partMatch[1]);
         // Roughly try to map paragraph index to sections
@@ -275,7 +275,7 @@ export default function PlayerScreen() {
                 <ExpandableCard
                   key={market.symbol}
                   title={market.name}
-                  subtitle={`${market.value.toFixed(2)} (${market.isPositive ? '+' : ''}${market.changePercent.toFixed(2)}%)`}
+                  subtitle={`${(market.value || 0).toFixed(2)} (${market.isPositive ? '+' : ''}${(market.changePercent || 0).toFixed(2)}%)`}
                   icon={
                     <Ionicons 
                       name={market.isPositive ? "trending-up" : "trending-down"} 
@@ -286,7 +286,7 @@ export default function PlayerScreen() {
                   isExpanded={activeCardId === market.symbol}
                 >
                   <Text style={styles.expandedText}>
-                    {market.isPositive ? 'Up' : 'Down'} {Math.abs(market.change).toFixed(2)} points today.
+                    {market.isPositive ? 'Up' : 'Down'} {Math.abs(market.change || 0).toFixed(2)} points today.
                   </Text>
                 </ExpandableCard>
               ))}

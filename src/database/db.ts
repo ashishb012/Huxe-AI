@@ -81,10 +81,10 @@ export async function getUserPreferences(): Promise<UserPreferences> {
       id: 1,
       preferredName: 'User',
       language: 'en',
-      voice1: 'Puck',
-      voice2: 'Kore',
+      voice1: 'Autonoe',
+      voice2: 'Orus',
       dailyBriefEnabled: 0,
-      dailyBriefHour: 8,
+      dailyBriefHour: 7,
       dailyBriefMinute: 0,
       lastScheduledBriefDate: null,
       updatedAt: new Date().toISOString(),
@@ -185,7 +185,7 @@ export async function addBriefHistory(
   const result = await db.runAsync(
     'INSERT INTO BriefHistory (durationSeconds, audioFilePath, briefDataJson, status) VALUES (?, ?, ?, ?)',
     durationSeconds,
-    audioFilePath || '', 
+    audioFilePath || '',
     briefDataJson,
     'completed',
   );

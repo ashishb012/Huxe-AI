@@ -9,8 +9,8 @@ export const CREATE_USER_PREFERENCES_TABLE = `
     id INTEGER PRIMARY KEY DEFAULT 1,
     preferredName TEXT DEFAULT 'User',
     language TEXT DEFAULT 'en' CHECK(language IN ('en', 'kn')),
-    voice1 TEXT DEFAULT 'Puck',
-    voice2 TEXT DEFAULT 'Kore',
+    voice1 TEXT DEFAULT 'Autonoe',
+    voice2 TEXT DEFAULT 'Orus',
     dailyBriefEnabled INTEGER DEFAULT 0,
     dailyBriefHour INTEGER DEFAULT 8,
     dailyBriefMinute INTEGER DEFAULT 0,
@@ -99,13 +99,28 @@ export interface BriefScript {
 
 // ── Gemini TTS Voice Options ────────────────────────────────
 
+// All Gemini 2.0 TTS Voices available
+
+// export const GEMINI_VOICES = [
+//   'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
+//   'Aoede', 'Autonoe', 'Callirrhoe', 'Charon', 'Despina',
+//   'Enceladus', 'Erinome', 'Fenrir', 'Gacrux', 'Iapetus',
+//   'Kore', 'Laomedeia', 'Leda', 'Orus', 'Puck',
+//   'Pulcherrima', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar',
+//   'Sulafat', 'Umbriel', 'Vindemiatrix', 'Zephyr', 'Zubenelgenubi',
+// ] as const;
+
+// Selected Gemini 2.0 TTS Voices 
 export const GEMINI_VOICES = [
-  'Achernar', 'Achird', 'Algenib', 'Algieba', 'Alnilam',
-  'Aoede', 'Autonoe', 'Callirrhoe', 'Charon', 'Despina',
+  'Achernar', 'Algieba', 'Alnilam', 'Aoede',
+  'Autonoe', 'Callirrhoe', 'Despina',
   'Enceladus', 'Erinome', 'Fenrir', 'Gacrux', 'Iapetus',
-  'Kore', 'Laomedeia', 'Leda', 'Orus', 'Puck',
-  'Pulcherrima', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar',
-  'Sulafat', 'Umbriel', 'Vindemiatrix', 'Zephyr', 'Zubenelgenubi',
+  'Kore', 'Laomedeia', 'Leda', 'Orus',
+  'Sadaltager', 'Schedar',
+  'Sulafat', 'Umbriel', 'Vindemiatrix', 'Zephyr',
 ] as const;
+
+//  Autonoe  Aoede
+//  Orus Erinome Zephyr
 
 export type GeminiVoice = (typeof GEMINI_VOICES)[number];

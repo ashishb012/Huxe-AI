@@ -24,7 +24,6 @@ describe('scriptService', () => {
     calendar: [],
     headlines: [],
     interests: [],
-    markets: [],
   };
 
   it('should successfully parse a valid Gemini API response', async () => {

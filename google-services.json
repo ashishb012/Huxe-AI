@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "795046708601",
+    "project_id": "alien-bruin-405903",
+    "storage_bucket": "alien-bruin-405903.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:795046708601:android:8dd31d16c48e42cc8fdba8",
+        "android_client_info": {
+          "package_name": "com.huxeai.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "795046708601-8hs97aasek34qfid82q8htik64cegr7t.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.huxeai.app",
+            "certificate_hash": "932d8bf245da16a6c60a718dd9c1aefb9556f129"
+          }
+        },
+        {
+          "client_id": "795046708601-jkajtdpod1r0g7nue1pr93hv8bp8de9k.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB579a3KiOfYovyhj5GwSS4Sn2qruPqfEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "795046708601-57j9vt0cnn8ibbj3rvdulb6uovcmghhn.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

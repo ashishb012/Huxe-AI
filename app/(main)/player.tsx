@@ -5,13 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as FileSystem from 'expo-file-system/legacy';
-import TrackPlayer, { useProgress, useIsPlaying, useActiveTrack } from 'react-native-track-player';
+import { useProgress, useIsPlaying } from 'react-native-track-player';
 
 import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
 import { getBriefHistoryById, getScriptForHistory } from '../../src/database/db';
 import { DailyBriefData } from '../../src/types/brief';
 import { PodcastScript } from '../../src/services/scriptService';
-import { loadTracks, play, pause, setPlaybackRate } from '../../src/services/playerService';
+import { loadTracks, play, pause, seekBy, seekTo, setPlaybackRate } from '../../src/services/playerService';
 import { GeneratedTrack } from '../../src/services/ttsService';
 
 import { SectionCard } from '../../src/components/SectionCard';
@@ -30,16 +30,11 @@ export default function PlayerScreen() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   
   const [brief, setBrief] = useState<DailyBriefData | null>(null);
-  const [script, setScript] = useState<PodcastScript | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // TrackPlayer Hooks
   const { playing } = useIsPlaying();
   const progressState = useProgress();
-  const activeTrack = useActiveTrack();
-  
-  // Active Card mapping
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
 
   const userName = userPreferences?.preferredName || 'User';
 
@@ -56,16 +51,14 @@ export default function PlayerScreen() {
           const scriptRecord = await getScriptForHistory(historyId);
           if (scriptRecord) {
             const parsedScript: PodcastScript = JSON.parse(scriptRecord.scriptJson);
-            setScript(parsedScript);
-            
-            // Reconstruct track objects
-            const tracks: GeneratedTrack[] = parsedScript.paragraphs.map((p, i) => ({
-              id: `part_${i}`,
-              url: `${FileSystem.documentDirectory}audio_cache/brief_${historyId}_part_${i}.wav`,
-              title: `Part ${i + 1}`,
-              artist: p.speaker,
+            // Always load as a single track — no automatic jumping between topics
+            const tracks: GeneratedTrack[] = [{
+              id: `full_podcast`,
+              url: `${FileSystem.documentDirectory}audio_cache/brief_${historyId}_part_0.wav`,
+              title: parsedScript.title || 'Daily Brief',
+              artist: 'Huxe AI',
               duration: 0
-            }));
+            }];
             
             await loadTracks(tracks);
             await play();
@@ -80,53 +73,34 @@ export default function PlayerScreen() {
     loadData();
 
     return () => {
-      // Pause when leaving
-      pause();
+      // Pause when leaving — wrapped in try/catch because TrackPlayer
+      // may not be initialized if the user navigates away early
+      void pause().catch(() => undefined);
     };
   }, [historyId]);
 
-  // Sync active track index to active card expansion (simple heuristic mapping)
-  useEffect(() => {
-    if (activeTrack && brief) {
-      const partMatch = String(activeTrack.id).match(/part_(\d+)/);
-      if (partMatch) {
-        const index = parseInt(partMatch[1]);
-        // Roughly try to map paragraph index to sections
-        // Very basic mapping for demo purposes
-        const totalItems = brief.emails.length + brief.newsletters.length + brief.headlines.length + brief.interests.length;
-        if (totalItems > 0 && script) {
-          const ratio = index / script.paragraphs.length;
-          
-          const allCardIds = [
-            ...brief.calendar.map(c => c.id),
-            ...brief.emails.map(e => e.id),
-            ...brief.newsletters.map(n => n.id),
-            ...brief.headlines.map(h => h.id),
-            ...brief.interests.map(i => i.id),
-            ...brief.markets.map(m => m.symbol)
-          ];
-          
-          const targetCardIndex = Math.floor(ratio * allCardIds.length);
-          setActiveCardId(allCardIds[Math.min(targetCardIndex, allCardIds.length - 1)]);
-        }
-      }
-    }
-  }, [activeTrack, brief, script]);
-
   const handleTogglePlay = () => {
     if (playing) {
-      pause();
+      void pause().catch((error) => console.warn('[Player] Pause unavailable:', error));
     } else {
-      play();
+      void play().catch((error) => console.warn('[Player] Play unavailable:', error));
     }
   };
 
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
-    setPlaybackRate(speed);
+    void setPlaybackRate(speed).catch((error) => console.warn('[Player] Playback rate unavailable:', error));
   };
 
-  const progressPercent = progressState.duration > 0 ? progressState.position / progressState.duration : 0;
+  const handleSeek = (position: number) => {
+    void seekTo(Math.min(Math.max(position, 0), progressState.duration || position)).catch((error) =>
+      console.warn('[Player] Seek unavailable:', error),
+    );
+  };
+
+  const handleSeekBy = (seconds: number) => {
+    void seekBy(seconds).catch((error) => console.warn('[Player] Seek unavailable:', error));
+  };
 
   if (isLoading || !brief) {
     return (
@@ -187,9 +161,8 @@ export default function PlayerScreen() {
                 <ExpandableCard
                   key={event.id}
                   title={event.title}
-                  subtitle={`${event.time}`}
+                  subtitle={`${event.time}${event.accountEmail ? ` · ${event.accountEmail}` : ''}`}
                   icon={<Ionicons name="calendar-outline" size={18} color={colors.textPrimary} />}
-                  isExpanded={activeCardId === event.id}
                 >
                   {event.location && <Text style={styles.expandedText}>• Location: {event.location}</Text>}
                 </ExpandableCard>
@@ -204,9 +177,8 @@ export default function PlayerScreen() {
                 <ExpandableCard
                   key={email.id}
                   title={email.subject}
-                  subtitle={`From: ${email.from}`}
+                  subtitle={`From: ${email.from}${email.accountEmail ? ` · ${email.accountEmail}` : ''}`}
                   icon={<Ionicons name="mail-outline" size={18} color={colors.textPrimary} />}
-                  isExpanded={activeCardId === email.id}
                 >
                   <Text style={styles.expandedText}>• {email.snippet}</Text>
                 </ExpandableCard>
@@ -221,9 +193,8 @@ export default function PlayerScreen() {
                 <ExpandableCard
                   key={nl.id}
                   title={nl.author}
-                  subtitle={nl.title}
+                  subtitle={`${nl.title}${nl.accountEmail ? ` · ${nl.accountEmail}` : ''}`}
                   icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
-                  isExpanded={activeCardId === nl.id}
                 >
                   {nl.bullets.map((bullet, i) => (
                     <Text key={i} style={styles.expandedText}>• {bullet}</Text>
@@ -242,7 +213,6 @@ export default function PlayerScreen() {
                   title={hl.source}
                   subtitle={hl.title}
                   icon={<Ionicons name="newspaper-outline" size={18} color={colors.textPrimary} />}
-                  isExpanded={activeCardId === hl.id}
                 >
                   <Text style={styles.expandedText}>• Tap to read the full article on {hl.source}</Text>
                 </ExpandableCard>
@@ -258,36 +228,10 @@ export default function PlayerScreen() {
                   key={interest.id}
                   title={interest.topic}
                   icon={<Ionicons name="radio-button-on" size={12} color={colors.textMuted} />}
-                  isExpanded={activeCardId === interest.id}
                 >
                   {interest.bullets.map((bullet, i) => (
                     <Text key={i} style={styles.expandedText}>• {bullet}</Text>
                   ))}
-                </ExpandableCard>
-              ))}
-            </SectionCard>
-          )}
-
-          {/* Markets Section */}
-          {brief.markets.length > 0 && (
-            <SectionCard title="Markets" sectionType="markets" isActive={false}>
-              {brief.markets.map((market) => (
-                <ExpandableCard
-                  key={market.symbol}
-                  title={market.name}
-                  subtitle={`${(market.value || 0).toFixed(2)} (${market.isPositive ? '+' : ''}${(market.changePercent || 0).toFixed(2)}%)`}
-                  icon={
-                    <Ionicons 
-                      name={market.isPositive ? "trending-up" : "trending-down"} 
-                      size={18} 
-                      color={market.isPositive ? '#4CAF50' : '#F44336'} 
-                    />
-                  }
-                  isExpanded={activeCardId === market.symbol}
-                >
-                  <Text style={styles.expandedText}>
-                    {market.isPositive ? 'Up' : 'Down'} {Math.abs(market.change || 0).toFixed(2)} points today.
-                  </Text>
                 </ExpandableCard>
               ))}
             </SectionCard>
@@ -321,7 +265,10 @@ export default function PlayerScreen() {
         playbackSpeed={playbackSpeed}
         onTogglePlay={handleTogglePlay}
         onSpeedChange={handleSpeedChange}
-        progress={progressPercent}
+        position={progressState.position}
+        duration={progressState.duration}
+        onSeek={handleSeek}
+        onSeekBy={handleSeekBy}
       />
     </View>
   );

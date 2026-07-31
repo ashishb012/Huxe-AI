@@ -76,6 +76,14 @@ export async function googleSignIn(): Promise<GoogleSignInResult> {
   throw new Error('Google Sign-In failed or was cancelled');
 }
 
+/** Opens Google's account chooser for a secondary, read-only connection. */
+export async function googleSignInForAdditionalAccount(): Promise<GoogleSignInResult> {
+  await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+  // The native SDK supports one active account. Stored app connections are not removed.
+  await GoogleSignin.signOut();
+  return googleSignIn();
+}
+
 // ── Sign Out ────────────────────────────────────────────────
 
 export async function googleSignOut(): Promise<void> {

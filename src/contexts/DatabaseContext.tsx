@@ -15,7 +15,6 @@ import React, {
 import type {
   UserPreferences,
   Interest,
-  MarketPreferences,
   BriefHistory,
 } from '../database/schema';
 
@@ -26,8 +25,6 @@ import {
   getInterests,
   addInterest as dbAddInterest,
   removeInterest as dbRemoveInterest,
-  getMarketPreferences,
-  updateMarketPreferences as dbUpdateMarketPreferences,
   addBriefHistory as dbAddBriefHistory,
   getRecentBriefs,
   clearAllData as dbClearAllData,
@@ -45,9 +42,6 @@ interface DatabaseContextValue {
   /** Current interest list (reactive) */
   interests: Interest[];
 
-  /** Current market preferences (reactive) */
-  marketPreferences: MarketPreferences | null;
-
   /** Recent brief history entries */
   briefHistory: BriefHistory[];
 
@@ -60,10 +54,6 @@ interface DatabaseContextValue {
   addInterest: (topic: string) => Promise<void>;
 
   removeInterest: (id: number) => Promise<void>;
-
-  updateMarketPreferences: (
-    prefs: Partial<Omit<MarketPreferences, 'id'>>,
-  ) => Promise<void>;
 
   addBriefHistory: (
     durationSeconds: number,
@@ -88,8 +78,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
   const [userPreferences, setUserPreferences] =
     useState<UserPreferences | null>(null);
   const [interests, setInterests] = useState<Interest[]>([]);
-  const [marketPreferences, setMarketPreferences] =
-    useState<MarketPreferences | null>(null);
   const [briefHistory, setBriefHistory] = useState<BriefHistory[]>([]);
 
   // ── Data Loaders ────────────────────────────────────────
@@ -104,11 +92,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     setInterests(items);
   }, []);
 
-  const loadMarketPreferences = useCallback(async () => {
-    const prefs = await getMarketPreferences();
-    setMarketPreferences(prefs);
-  }, []);
-
   const loadBriefHistory = useCallback(async () => {
     const briefs = await getRecentBriefs(20);
     setBriefHistory(briefs);
@@ -118,10 +101,9 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     await Promise.all([
       loadUserPreferences(),
       loadInterests(),
-      loadMarketPreferences(),
       loadBriefHistory(),
     ]);
-  }, [loadUserPreferences, loadInterests, loadMarketPreferences, loadBriefHistory]);
+  }, [loadUserPreferences, loadInterests, loadBriefHistory]);
 
   // ── Init ────────────────────────────────────────────────
 
@@ -172,14 +154,6 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
     [loadInterests],
   );
 
-  const updateMarketPreferencesWrapped = useCallback(
-    async (prefs: Partial<Omit<MarketPreferences, 'id'>>) => {
-      await dbUpdateMarketPreferences(prefs);
-      await loadMarketPreferences();
-    },
-    [loadMarketPreferences],
-  );
-
   const addBriefHistoryWrapped = useCallback(
     async (
       durationSeconds: number,
@@ -209,12 +183,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       userPreferences,
       interests,
-      marketPreferences,
       briefHistory,
       updateUserPreferences: updateUserPreferencesWrapped,
       addInterest: addInterestWrapped,
       removeInterest: removeInterestWrapped,
-      updateMarketPreferences: updateMarketPreferencesWrapped,
       addBriefHistory: addBriefHistoryWrapped,
       refreshBriefHistory: loadBriefHistory,
       clearAllData: clearAllDataWrapped,
@@ -224,12 +196,10 @@ export function DatabaseProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       userPreferences,
       interests,
-      marketPreferences,
       briefHistory,
       updateUserPreferencesWrapped,
       addInterestWrapped,
       removeInterestWrapped,
-      updateMarketPreferencesWrapped,
       addBriefHistoryWrapped,
       loadBriefHistory,
       clearAllDataWrapped,

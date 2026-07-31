@@ -5,7 +5,7 @@ import { WaveformIndicator } from './WaveformIndicator';
 import { colors } from '../theme/colors';
 import { typography } from '../theme/typography';
 
-type SectionType = 'email' | 'newsletter' | 'headlines' | 'interests' | 'calendar' | 'markets';
+type SectionType = 'email' | 'newsletter' | 'headlines' | 'interests' | 'calendar';
 
 interface SectionCardProps {
   title: string;
@@ -20,7 +20,6 @@ const SECTION_TINTS: Record<SectionType, readonly [string, string]> = {
   headlines: colors.headlinesGradient,
   interests: colors.interestsGradient,
   calendar: ['rgba(0, 150, 200, 0.25)', 'rgba(0, 80, 120, 0.15)'] as const,
-  markets: ['rgba(30, 160, 120, 0.25)', 'rgba(20, 100, 80, 0.15)'] as const,
 };
 
 export function SectionCard({ title, sectionType, isActive = false, children }: SectionCardProps) {

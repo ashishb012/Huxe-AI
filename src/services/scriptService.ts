@@ -22,6 +22,7 @@ export interface PodcastScript {
 export async function generatePodcastScript(
   briefData: DailyBriefData,
   userName: string,
+  language: 'en' | 'kn' = 'en',
   onProgress?: (status: string) => void
 ): Promise<PodcastScript> {
   const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -31,36 +32,68 @@ export async function generatePodcastScript(
 
   if (onProgress) onProgress('Analyzing your daily data...');
 
+  const isKannada = language === 'kn';
+  const languageName = isKannada ? 'Kannada' : 'English';
+
   console.log('[Script] Starting script generation...');
+  console.log('[Script] Language:', languageName);
   console.log('[Script] Brief data summary:', {
     calendar: briefData.calendar.length,
     emails: briefData.emails.length,
     newsletters: briefData.newsletters.length,
     headlines: briefData.headlines.length,
     interests: briefData.interests.length,
-    markets: briefData.markets.length,
   });
 
-  const prompt = `
-    You are an AI podcast host generating a personalized morning brief.
-    User's name: ${userName}
-    Date: ${briefData.date}
-    
-    Here is their data for today:
-    Emails & Newsletters: ${JSON.stringify(briefData.emails)} ${JSON.stringify(briefData.newsletters)}
-    Calendar: ${JSON.stringify(briefData.calendar)}
-    Headlines: ${JSON.stringify(briefData.headlines)}
-    Markets: ${JSON.stringify(briefData.markets)}
+  // Language-specific instructions injected into the prompt
+  const languageInstruction = isKannada
+    ? `
+LANGUAGE REQUIREMENT (CRITICAL — STRICTLY ENFORCED):
+- You MUST write the ENTIRE podcast dialogue in Natural Spoken Kannada (ಕನ್ನಡ) using the Kannada script.
+- Every single word spoken by Host and Co-Host MUST be in Kannada or Eng-Kan Natural spoken language.
+- The title field MUST also be in Kannada.
+- Keep proper nouns, brand names, app names, and people's names in their original English form (e.g., "Google", "Gemini", "${userName}").
+- Translate all other English content — email subjects, newsletter summaries, headlines, calendar event descriptions — into natural, conversational Kannada or Eng-Kan.
+- Use a warm, everyday spoken Kannada tone (ಆಡುಮಾತಿನ ಶೈಲಿ), not formal literary Kannada.
+- Technical terms may be kept in English if there is no commonly used Kannada equivalent, but the surrounding sentence must be in Kannada.
+`
+    : `
+LANGUAGE REQUIREMENT:
+- Write the entire podcast dialogue in English.
+`;
 
-    CRITICAL INSTRUCTIONS:
-    - If the Calendar array is empty, explicitly mention that they have a free day or a clear schedule today.
-    - If the Emails/Newsletters array is empty, mention that their inbox is clear and quiet this morning.
-    - Focus heavily on the Headlines and Markets if personal data is light.
-    - Create an engaging, NPR-style short podcast script. 
-    - Use two speakers: "Host" and "Co-Host".
-    - Keep it conversational, insightful, and concise (about 2-3 minutes spoken).
-    - Respond strictly in JSON matching the following schema.
-  `;
+  const prompt = `
+You are creating a personalized, two-person morning-news podcast for ${userName} on ${briefData.date}.
+${languageInstruction}
+SOURCE DATA (use only these facts; do not invent details, prices, dates, quotes, or links):
+Emails: ${JSON.stringify(briefData.emails)}
+Newsletters: ${JSON.stringify(briefData.newsletters)}
+Calendar: ${JSON.stringify(briefData.calendar)}
+Headlines: ${JSON.stringify(briefData.headlines)}
+
+YOUR JOB:
+Write a warm, natural, NPR-style conversation between "Host" and "Co-Host" in ${languageName}. The finished script must be 1,500-2,000 spoken words (roughly 10-15 minutes at a natural podcast pace), excluding the title and speaker labels. Aim for 30-45 alternating turns, with each turn usually 25-70 words. Do not compress the entire brief into a few short paragraphs.
+
+EDITORIAL APPROACH:
+- Open with a brief welcome and a clear preview of what matters this morning. Close with a useful, human sign-off.
+- Cover the day in a thoughtful flow: inbox and newsletters, calendar, then major news. Adapt the balance to the available data, but do not pad with generic filler.
+- Treat emails and newsletters as material to explain, not merely items to list. For each substantive item, say who it is from, what it is about, the important details present in the source data, why it may matter, and any sensible next step when supported by the data.
+- When an item includes an accountEmail, mention the account naturally when it helps distinguish information from multiple inboxes or calendars.
+- Give newsletters especially careful treatment. Expand their bullets into a coherent spoken explanation: explain the main thesis, connect the important points, add context only when it is directly supported by the supplied text, and make clear why the reader should care. For technical newsletters, translate jargon into plain language without losing the actual substance. Spend extra time on Cloud, Cloud Security, Cyber Security, System Design, AI, AI Security related emails/newsletters. 
+- Cover the most meaningful headlines with more than a one-sentence summary. Explain what happened, why it matters, and—only when grounded in the supplied headline—what to watch next. Attribute each headline to its source when available.
+- If Calendar is empty, explicitly and naturally note that the schedule is clear. If both Emails and Newsletters are empty, say the inbox is quiet. If a section has no data, transition past it gracefully instead of fabricating coverage.
+
+CONVERSATION AND TRANSITIONS:
+- Make both speakers contribute insightfully. They should react to one another, ask occasional genuine follow-up questions, clarify points, and avoid repeating the same information.
+- Every section change needs a thoughtful, conversational bridge that connects the preceding topic to the next one. Do not use abrupt labels such as "Next up" or "Moving on" as the only transition.
+- Vary sentence length and phrasing so it sounds spoken, not like a report being read aloud. Use clear, accessible language and a calm, intelligent tone.
+
+OUTPUT REQUIREMENTS:
+- Return only valid JSON matching the provided schema—no Markdown, notes, or code fences.
+- Use only "Host" and "Co-Host" as speaker values.
+- Set durationEstimate to "8-12 minutes".
+- REMINDER: All text content in the "text" and "title" fields MUST be in ${languageName}.
+`;
 
   try {
     if (onProgress) onProgress('Writing the podcast script...');
@@ -77,6 +110,10 @@ export async function generatePodcastScript(
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
           temperature: 0.7,
+          // A 8-12 minute, structured dialogue needs substantially more room than
+          // the provider default, especially once serialized as JSON.
+          // 16384 tokens accommodates heavy data days (10+ newsletters, many headlines).
+          maxOutputTokens: 16384,
           responseMimeType: "application/json",
           responseSchema: {
             type: "OBJECT",
@@ -114,6 +151,13 @@ export async function generatePodcastScript(
     if (!candidate) {
       console.error('[Script] No candidates in response:', JSON.stringify(data));
       throw new Error('Gemini returned no candidates for script generation');
+    }
+
+    // Check if the response was truncated due to hitting the token limit
+    const finishReason = candidate.finishReason;
+    if (finishReason === 'MAX_TOKENS') {
+      console.error('[Script] Response was truncated (MAX_TOKENS). Increase maxOutputTokens.');
+      throw new Error('Gemini script was truncated — the podcast data was too long. Try reducing the number of newsletters/emails or increase the token limit.');
     }
 
     const resultText = candidate.content?.parts?.[0]?.text;

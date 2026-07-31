@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,12 +10,30 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 
 export default function IntegrationsScreen() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { connectedAccounts, linkGoogleAccount, unlinkGoogleAccount } = useAuth();
+  const [isLinking, setIsLinking] = useState(false);
+
+  const addAccount = async () => {
+    try {
+      setIsLinking(true);
+      await linkGoogleAccount();
+    } catch (error) {
+      Alert.alert('Could not connect account', error instanceof Error ? error.message : 'Please try again.');
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
+  const disconnect = (email: string) => {
+    Alert.alert('Disconnect account?', `${email} will no longer be included in your podcast.`, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Disconnect', style: 'destructive', onPress: () => unlinkGoogleAccount(email) },
+    ]);
+  };
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
-        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
@@ -23,41 +41,29 @@ export default function IntegrationsScreen() {
           <Text style={styles.headerTitle}>Integrations</Text>
           <View style={styles.spacer} />
         </View>
-
         <ScrollView contentContainerStyle={styles.content}>
           <Text style={styles.sectionTitle}>Google Accounts</Text>
-          
-          <GlassCard style={styles.accountCard}>
-            <View style={styles.accountHeader}>
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{user?.name?.[0] || 'U'}</Text>
+          {connectedAccounts.map(account => (
+            <GlassCard style={styles.accountCard} key={account.email}>
+              <View style={styles.accountHeader}>
+                <View style={styles.avatar}><Text style={styles.avatarText}>{account.name[0] || 'G'}</Text></View>
+                <View style={styles.accountInfo}>
+                  <Text style={styles.accountName}>{account.name}</Text>
+                  <Text style={styles.accountEmail}>{account.email}</Text>
+                </View>
+                <Text style={styles.badgeText}>{account.isPrimary ? 'Primary' : 'Connected'}</Text>
               </View>
-              <View style={styles.accountInfo}>
-                <Text style={styles.accountName}>{user?.name || 'User'}</Text>
-                <Text style={styles.accountEmail}>{user?.email || 'email@example.com'}</Text>
-              </View>
-              <View style={styles.badgeContainer}>
-                <Text style={styles.badgeText}>Connected</Text>
-              </View>
-            </View>
-            <View style={styles.cardFooter}>
-              <TouchableOpacity style={styles.disconnectButton} onPress={() => signOut()}>
-                <Text style={styles.disconnectText}>Disconnect</Text>
-              </TouchableOpacity>
-            </View>
-          </GlassCard>
-
-          <View style={styles.addAccountContainer}>
-            <TouchableOpacity 
-              style={styles.addAccountButton}
-              onPress={() => alert('Multi-account support is coming in a future update!')}
-            >
-              <Text style={styles.addAccountText}>+ Add another Google account</Text>
-            </TouchableOpacity>
-            <Text style={styles.infoText}>
-              We only access your Gmail (read-only) and Calendar (read-only)
-            </Text>
-          </View>
+              {!account.isPrimary && (
+                <TouchableOpacity style={styles.disconnectButton} onPress={() => disconnect(account.email)}>
+                  <Text style={styles.disconnectText}>Disconnect</Text>
+                </TouchableOpacity>
+              )}
+            </GlassCard>
+          ))}
+          <TouchableOpacity style={styles.addButton} onPress={addAccount} disabled={isLinking}>
+            {isLinking ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.addText}>+ Add another Google account</Text>}
+          </TouchableOpacity>
+          <Text style={styles.infoText}>We only access Gmail and Calendar with read-only permission. Every connected account is included in your podcast.</Text>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -65,128 +71,15 @@ export default function IntegrationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  safeArea: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-  },
-  backButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backIcon: {
-    fontSize: 24,
-    color: colors.textPrimary,
-  },
-  headerTitle: {
-    ...typography.h2,
-    color: colors.textPrimary,
-  },
-  spacer: {
-    width: 44,
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.accent,
-    marginBottom: 16,
-  },
-  accountCard: {
-    padding: 20,
-    marginBottom: 32,
-  },
-  accountHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  avatarText: {
-    ...typography.h3,
-    color: colors.textPrimary,
-  },
-  accountInfo: {
-    flex: 1,
-  },
-  accountName: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-  },
-  accountEmail: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  badgeContainer: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
-  },
-  badgeText: {
-    ...typography.caption,
-    color: colors.success,
-    fontWeight: 'bold',
-  },
-  cardFooter: {
-    borderTopWidth: 1,
-    borderTopColor: colors.surfaceBorder,
-    paddingTop: 16,
-    alignItems: 'center',
-  },
-  disconnectButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-  },
-  disconnectText: {
-    ...typography.bodyBold,
-    color: colors.error,
-  },
-  addAccountContainer: {
-    alignItems: 'center',
-  },
-  addAccountButton: {
-    width: '100%',
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 1,
-    borderColor: colors.accent,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  addAccountText: {
-    ...typography.bodyBold,
-    color: colors.accent,
-  },
-  infoText: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
+  container: { flex: 1, backgroundColor: colors.background }, safeArea: { flex: 1 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 16 },
+  backButton: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' }, spacer: { width: 44 },
+  headerTitle: { ...typography.h2, color: colors.textPrimary }, content: { paddingHorizontal: 24, paddingTop: 24 },
+  sectionTitle: { ...typography.h3, color: colors.accent, marginBottom: 16 }, accountCard: { padding: 20, marginBottom: 12 },
+  accountHeader: { flexDirection: 'row', alignItems: 'center' }, avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  avatarText: { ...typography.h3, color: colors.textPrimary }, accountInfo: { flex: 1 }, accountName: { ...typography.bodyBold, color: colors.textPrimary },
+  accountEmail: { ...typography.caption, color: colors.textSecondary }, badgeText: { ...typography.caption, color: colors.success, fontWeight: 'bold' },
+  disconnectButton: { borderTopWidth: 1, borderTopColor: colors.surfaceBorder, marginTop: 16, paddingTop: 14, alignItems: 'center' }, disconnectText: { ...typography.bodyBold, color: colors.error },
+  addButton: { height: 52, borderRadius: 26, borderWidth: 1, borderColor: colors.accent, justifyContent: 'center', alignItems: 'center', marginTop: 20, marginBottom: 16 },
+  addText: { ...typography.bodyBold, color: colors.accent }, infoText: { ...typography.caption, color: colors.textMuted, textAlign: 'center', paddingHorizontal: 20 },
 });

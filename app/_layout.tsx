@@ -12,6 +12,7 @@ import TrackPlayer from 'react-native-track-player';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { NetworkStatus } from '../src/components/NetworkStatus';
 import Toast from 'react-native-toast-message';
+import '../src/services/dailyBriefScheduler';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();

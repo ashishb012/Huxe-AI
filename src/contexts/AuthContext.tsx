@@ -12,7 +12,22 @@ import React, {
   useState,
 } from 'react';
 
-import { googleSignIn, googleSignOut, restoreSession, initGoogleSignIn } from '../services/authService';
+import {
+  googleSignIn,
+  googleSignInForAdditionalAccount,
+  googleSignOut,
+  restoreSession,
+  initGoogleSignIn,
+} from '../services/authService';
+import {
+  addConnectedGoogleAccount,
+  clearConnectedGoogleAccounts,
+  getConnectedGoogleAccounts,
+  removeConnectedGoogleAccount,
+  savePrimaryGoogleAccount,
+  updateConnectedGoogleAccountToken,
+  type ConnectedGoogleAccount,
+} from '../services/connectedAccountsService';
 
 // ── Types ───────────────────────────────────────────────────
 
@@ -31,12 +46,15 @@ interface AuthContextValue {
 
   /** The signed-in user, or null */
   user: AuthUser | null;
+  connectedAccounts: ConnectedGoogleAccount[];
 
   /** Trigger sign-in flow */
   signIn: () => Promise<void>;
 
   /** Sign out and clear user state */
   signOut: () => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
+  unlinkGoogleAccount: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -45,6 +63,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [connectedAccounts, setConnectedAccounts] = useState<ConnectedGoogleAccount[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Restore session on mount
@@ -52,9 +71,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initSession = async () => {
       try {
         initGoogleSignIn();
+        const savedAccounts = await getConnectedGoogleAccounts();
+        const primaryAccount = savedAccounts.find(account => account.isPrimary);
         const result = await restoreSession();
-        if (result) {
+        if (primaryAccount) {
+          // GoogleSignin retains the most recently linked account, but the
+          // user's original login remains the app's primary identity.
+          setUser(primaryAccount);
+          setConnectedAccounts(result
+            ? await updateConnectedGoogleAccountToken(result.user.email, result.accessToken)
+            : savedAccounts);
+        } else if (result) {
           setUser(result.user);
+          setConnectedAccounts(await savePrimaryGoogleAccount(result.user, result.accessToken));
         }
       } catch (error) {
         console.warn('[AuthProvider] Restore session failed:', error);
@@ -71,6 +100,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true);
       const result = await googleSignIn();
       setUser(result.user);
+      setConnectedAccounts(await savePrimaryGoogleAccount(result.user, result.accessToken));
     } catch (error) {
       console.error('[AuthProvider] Sign-in failed:', error);
       throw error;
@@ -82,11 +112,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     try {
       await googleSignOut();
+      await clearConnectedGoogleAccounts();
       setUser(null);
+      setConnectedAccounts([]);
     } catch (error) {
       console.error('[AuthProvider] Sign-out failed:', error);
       throw error;
     }
+  }, []);
+
+  const linkGoogleAccount = useCallback(async () => {
+    const result = await googleSignInForAdditionalAccount();
+    setConnectedAccounts(await addConnectedGoogleAccount(result.user, result.accessToken));
+  }, []);
+
+  const unlinkGoogleAccount = useCallback(async (email: string) => {
+    setConnectedAccounts(await removeConnectedGoogleAccount(email));
   }, []);
 
   const value = useMemo<AuthContextValue>(
@@ -94,10 +135,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: user !== null,
       isLoading,
       user,
+      connectedAccounts,
       signIn,
       signOut,
+      linkGoogleAccount,
+      unlinkGoogleAccount,
     }),
-    [user, isLoading, signIn, signOut],
+    [user, connectedAccounts, isLoading, signIn, signOut, linkGoogleAccount, unlinkGoogleAccount],
   );
 
   return (

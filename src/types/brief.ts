@@ -4,6 +4,7 @@ export interface EmailItem {
   from: string;
   snippet: string;
   isNewsletter: boolean;
+  accountEmail?: string;
 }
 
 export interface NewsletterItem {
@@ -11,6 +12,7 @@ export interface NewsletterItem {
   author: string;
   title: string;
   bullets: string[];
+  accountEmail?: string;
 }
 
 export interface HeadlineItem {
@@ -27,21 +29,13 @@ export interface InterestItem {
   bullets: string[];
 }
 
-export interface MarketDataItem {
-  symbol: string;
-  name: string;
-  value: number;
-  change: number;
-  changePercent: number;
-  isPositive: boolean;
-}
-
 export interface CalendarEvent {
   id: string;
   title: string;
   time: string;
   location: string | null;
   isAllDay: boolean;
+  accountEmail?: string;
 }
 
 export interface DailyBriefData {
@@ -52,5 +46,4 @@ export interface DailyBriefData {
   newsletters: NewsletterItem[];
   headlines: HeadlineItem[];
   interests: InterestItem[];
-  markets: MarketDataItem[];
 }

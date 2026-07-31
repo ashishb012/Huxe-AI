@@ -11,6 +11,10 @@ export const CREATE_USER_PREFERENCES_TABLE = `
     language TEXT DEFAULT 'en' CHECK(language IN ('en', 'kn')),
     voice1 TEXT DEFAULT 'Puck',
     voice2 TEXT DEFAULT 'Kore',
+    dailyBriefEnabled INTEGER DEFAULT 0,
+    dailyBriefHour INTEGER DEFAULT 8,
+    dailyBriefMinute INTEGER DEFAULT 0,
+    lastScheduledBriefDate TEXT,
     updatedAt TEXT DEFAULT (datetime('now'))
   );
 `;
@@ -20,14 +24,6 @@ export const CREATE_INTERESTS_TABLE = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     topicString TEXT NOT NULL UNIQUE,
     createdAt TEXT DEFAULT (datetime('now'))
-  );
-`;
-
-export const CREATE_MARKET_PREFERENCES_TABLE = `
-  CREATE TABLE IF NOT EXISTS MarketPreferences (
-    id INTEGER PRIMARY KEY DEFAULT 1,
-    usMarketEnabled INTEGER DEFAULT 1,
-    indianMarketEnabled INTEGER DEFAULT 1
   );
 `;
 
@@ -57,15 +53,9 @@ export const INSERT_DEFAULT_PREFERENCES = `
   INSERT OR IGNORE INTO UserPreferences (id, preferredName) VALUES (1, 'User');
 `;
 
-export const INSERT_DEFAULT_MARKET_PREFS = `
-  INSERT OR IGNORE INTO MarketPreferences (id) VALUES (1);
-`;
-
 export const DEFAULT_INTERESTS: readonly string[] = [
   'AI and deep tech',
   'Tech business and geopolitics',
-  'Global and US markets',
-  'Indian stock market',
   'Bengaluru and Karnataka news',
 ] as const;
 
@@ -77,6 +67,10 @@ export interface UserPreferences {
   language: 'en' | 'kn';
   voice1: string;
   voice2: string;
+  dailyBriefEnabled: number;
+  dailyBriefHour: number;
+  dailyBriefMinute: number;
+  lastScheduledBriefDate: string | null;
   updatedAt: string;
 }
 
@@ -84,12 +78,6 @@ export interface Interest {
   id: number;
   topicString: string;
   createdAt: string;
-}
-
-export interface MarketPreferences {
-  id: number;
-  usMarketEnabled: boolean;
-  indianMarketEnabled: boolean;
 }
 
 export interface BriefHistory {
@@ -108,12 +96,6 @@ export interface BriefScript {
 }
 
 // ── Raw DB row types (SQLite stores booleans as integers) ───
-
-export interface MarketPreferencesRow {
-  id: number;
-  usMarketEnabled: number;
-  indianMarketEnabled: number;
-}
 
 // ── Gemini TTS Voice Options ────────────────────────────────
 

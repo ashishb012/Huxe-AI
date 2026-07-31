@@ -20,14 +20,12 @@ export async function setupPlayer() {
       capabilities: [
         Capability.Play,
         Capability.Pause,
-        Capability.SkipToNext,
-        Capability.SkipToPrevious,
+        Capability.SeekTo,
         Capability.Stop,
       ],
       compactCapabilities: [
         Capability.Play,
         Capability.Pause,
-        Capability.SkipToNext,
       ],
     });
 
@@ -58,4 +56,14 @@ export async function pause() {
 
 export async function setPlaybackRate(rate: number) {
   await TrackPlayer.setRate(rate);
+}
+
+export async function seekTo(position: number) {
+  await TrackPlayer.seekTo(Math.max(0, position));
+}
+
+export async function seekBy(seconds: number) {
+  const { position, duration } = await TrackPlayer.getProgress();
+  const maximumPosition = duration > 0 ? duration : Number.MAX_SAFE_INTEGER;
+  await seekTo(Math.min(Math.max(position + seconds, 0), maximumPosition));
 }

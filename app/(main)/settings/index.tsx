@@ -23,6 +23,13 @@ const SETTINGS_PAGES = [
     route: '/(main)/settings/interests',
   },
   {
+    id: 'schedule',
+    title: 'Daily Schedule',
+    description: 'Choose when to generate your brief',
+    icon: <Ionicons name="time-outline" size={20} color={colors.textPrimary} />,
+    route: '/(main)/settings/schedule',
+  },
+  {
     id: 'language',
     title: 'Language & Audio',
     description: 'Language and voice preferences',

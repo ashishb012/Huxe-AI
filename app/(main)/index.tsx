@@ -1,15 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, FlatList, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useDatabaseContext } from '../../src/contexts/DatabaseContext';
 import { generateGreeting, formatDate } from '../../src/mocks/briefData';
-import { generateDailyBrief } from '../../src/services/briefDataService';
-import { generatePodcastScript } from '../../src/services/scriptService';
-import { generateAudioForScript } from '../../src/services/ttsService';
-import { addBriefHistory, addBriefScript, getRecentBriefs } from '../../src/database/db';
+import { getRecentBriefs } from '../../src/database/db';
+import { generateAndSaveDailyBrief } from '../../src/services/briefGenerationService';
 import { BriefHistory } from '../../src/database/schema';
 import { GradientButton } from '../../src/components/GradientButton';
 import { GlassCard } from '../../src/components/GlassCard';
@@ -47,8 +45,12 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       const loadHistory = async () => {
-        const history = await getRecentBriefs(5);
-        setRecentBriefs(history);
+        try {
+          const history = await getRecentBriefs(5);
+          setRecentBriefs(history);
+        } catch (error) {
+          console.error('[Home] Failed to load brief history:', error);
+        }
       };
       loadHistory();
     }, [])
@@ -61,19 +63,7 @@ export default function HomeScreen() {
   const handleGenerateBrief = async () => {
     try {
       setIsGenerating(true);
-      setGenerationStatus('Fetching emails and calendar...');
-      const briefData = await generateDailyBrief(userName);
-
-      setGenerationStatus('Writing podcast script with AI...');
-      const script = await generatePodcastScript(briefData, userName, setGenerationStatus);
-
-      setGenerationStatus('Saving brief to database...');
-      const durationEstimateSeconds = parseInt(script.durationEstimate) * 60 || 120;
-      const historyId = await addBriefHistory(durationEstimateSeconds, null, JSON.stringify(briefData));
-      await addBriefScript(historyId, JSON.stringify(script));
-
-      setGenerationStatus('Generating lifelike audio...');
-      await generateAudioForScript(historyId, script, setGenerationStatus);
+      const historyId = await generateAndSaveDailyBrief(setGenerationStatus);
 
       setIsGenerating(false);
       router.push({ pathname: '/(main)/player', params: { id: historyId } });
@@ -114,6 +104,7 @@ export default function HomeScreen() {
             }
           ]}
         >
+          <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <View style={styles.heroContainer}>
             <LinearGradient
               colors={['#8B4513', '#D2691E', '#CD853F', '#F4A460', '#2F4F4F']}
@@ -147,16 +138,13 @@ export default function HomeScreen() {
                   <Text style={styles.historyText}>No briefs generated yet</Text>
                 </GlassCard>
               ) : (
-                <FlatList
-                  data={recentBriefs}
-                  keyExtractor={(item) => item.id.toString()}
-                  renderItem={({ item }) => <HistoryCard history={item} />}
-                  scrollEnabled={false}
-                  contentContainerStyle={{ gap: 8, paddingBottom: 24 }}
-                />
+                <View style={styles.historyList}>
+                  {recentBriefs.map((item) => <HistoryCard key={item.id} history={item} />)}
+                </View>
               )}
             </View>
           </View>
+          </ScrollView>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -200,8 +188,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 24,
   },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  scrollView: {
+    flex: 1,
+  },
   heroContainer: {
-    height: '55%',
+    minHeight: 360,
     borderRadius: 32,
     overflow: 'hidden',
     marginBottom: 32,
@@ -260,6 +254,10 @@ const styles = StyleSheet.create({
   historyContainer: {
     alignItems: 'stretch',
     marginTop: 16,
+  },
+  historyList: {
+    gap: 8,
+    paddingBottom: 24,
   },
   sectionTitle: {
     ...typography.h3,

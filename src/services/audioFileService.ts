@@ -60,6 +60,13 @@ export async function clearAudioCache(): Promise<void> {
   );
 }
 
+export async function deleteAudioFiles(filePaths: string[]): Promise<void> {
+  await Promise.all(filePaths.map(async (filePath) => {
+    const info = await FileSystem.getInfoAsync(filePath);
+    if (info.exists) await FileSystem.deleteAsync(filePath, { idempotent: true });
+  }));
+}
+
 function shouldWrapPcmInWav(mimeType?: string): boolean {
   if (!mimeType) {
     return true;

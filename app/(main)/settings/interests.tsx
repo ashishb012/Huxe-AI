@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useDatabaseContext } from '../../../src/contexts/DatabaseContext';
 import { TopicChip } from '../../../src/components/TopicChip';
-import { GlassCard } from '../../../src/components/GlassCard';
 import { colors } from '../../../src/theme/colors';
 import { typography } from '../../../src/theme/typography';
 
 export default function InterestsScreen() {
   const router = useRouter();
-  const { interests, addInterest, removeInterest, marketPreferences, updateMarketPreferences } = useDatabaseContext();
+  const { interests, addInterest, removeInterest } = useDatabaseContext();
   const [newTopic, setNewTopic] = useState('');
 
   const handleAddTopic = () => {
@@ -19,14 +18,6 @@ export default function InterestsScreen() {
       addInterest(newTopic.trim());
       setNewTopic('');
     }
-  };
-
-  const toggleUsMarket = (value: boolean) => {
-    updateMarketPreferences({ usMarketEnabled: value });
-  };
-
-  const toggleIndianMarket = (value: boolean) => {
-    updateMarketPreferences({ indianMarketEnabled: value });
   };
 
   return (
@@ -71,39 +62,6 @@ export default function InterestsScreen() {
             ))}
           </View>
 
-          <Text style={styles.sectionTitle}>Stock Market Updates</Text>
-          
-          <GlassCard style={styles.marketCard}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleInfo}>
-                <Text style={styles.toggleTitle}>US Markets</Text>
-                <Text style={styles.toggleDesc}>S&P 500, NASDAQ</Text>
-              </View>
-              <Switch
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: colors.accent }}
-                thumbColor={colors.textPrimary}
-                ios_backgroundColor="rgba(255,255,255,0.1)"
-                onValueChange={toggleUsMarket}
-                value={marketPreferences?.usMarketEnabled ?? false}
-              />
-            </View>
-            
-            <View style={styles.divider} />
-            
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleInfo}>
-                <Text style={styles.toggleTitle}>Indian Markets</Text>
-                <Text style={styles.toggleDesc}>NIFTY 50, SENSEX</Text>
-              </View>
-              <Switch
-                trackColor={{ false: 'rgba(255,255,255,0.1)', true: colors.accent }}
-                thumbColor={colors.textPrimary}
-                ios_backgroundColor="rgba(255,255,255,0.1)"
-                onValueChange={toggleIndianMarket}
-                value={marketPreferences?.indianMarketEnabled ?? false}
-              />
-            </View>
-          </GlassCard>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -187,36 +145,5 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
     marginBottom: 40,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.accent,
-    marginBottom: 16,
-  },
-  marketCard: {
-    padding: 20,
-  },
-  toggleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  toggleInfo: {
-    flex: 1,
-  },
-  toggleTitle: {
-    ...typography.bodyBold,
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  toggleDesc: {
-    ...typography.caption,
-    color: colors.textSecondary,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.surfaceBorder,
-    marginVertical: 12,
   },
 });

@@ -5,6 +5,7 @@
 import { PodcastScript } from './scriptService';
 import { saveAudioPart } from './audioFileService';
 import { logError, ErrorSeverity } from '../utils/errorHandler';
+import { getUserPreferences } from '../database/db';
 
 // Gemini 2.5 Flash Preview TTS — cheaper, higher limits
 const TTS_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent';
@@ -28,7 +29,9 @@ export interface GeneratedTrack {
  *
  * @see https://ai.google.dev/gemini-api/docs/speech-generation#multi-speaker
  */
-function buildTTSRequestBody(text: string): object {
+async function buildTTSRequestBody(text: string): Promise<object> {
+  const prefs = await getUserPreferences();
+  
   return {
     contents: [{ parts: [{ text }] }],
     generationConfig: {
@@ -39,13 +42,13 @@ function buildTTSRequestBody(text: string): object {
             {
               speaker: 'Host',
               voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: 'Charon' }
+                prebuiltVoiceConfig: { voiceName: prefs.voice1 || 'Charon' }
               }
             },
             {
               speaker: 'Co-Host',
               voiceConfig: {
-                prebuiltVoiceConfig: { voiceName: 'Puck' }
+                prebuiltVoiceConfig: { voiceName: prefs.voice2 || 'Puck' }
               }
             }
           ]
@@ -64,13 +67,15 @@ async function callTTSWithRetry(
   text: string,
   partIndex: number
 ): Promise<{ base64Audio: string; mimeType: string }> {
+  const requestBody = await buildTTSRequestBody(text);
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     console.log(`[TTS] Part ${partIndex} — attempt ${attempt}/${MAX_RETRIES}`);
 
     const response = await fetch(`${TTS_API_URL}?key=${API_KEY}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildTTSRequestBody(text)),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {

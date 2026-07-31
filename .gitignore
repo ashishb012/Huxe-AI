@@ -38,7 +38,7 @@ yarn-error.*
 /android
 
 # Google Services
-# google-services.json
+google-services.json
 GoogleService-Info.plist
 
 # local env files
